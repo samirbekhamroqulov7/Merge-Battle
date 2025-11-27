@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 
 export default defineConfig({
-  base: '/',   // <--- обязательно для Netlify
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -12,9 +12,10 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
   },
   build: {
-    target: 'esnext',
-    outDir: 'build',   // <--- можно оставить
+    target: 'es2017',     // ← ЭТО ВАЖНО
+    outDir: 'build',
     sourcemap: true,
+    minify: 'esbuild',
   },
   server: {
     port: 3000,
