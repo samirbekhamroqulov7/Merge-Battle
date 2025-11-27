@@ -1,0 +1,27 @@
+{ 
+  "name": "merge-battle", 
+  "version": "1.0.0", 
+  "description": "Merge Battle — TypeScript + Vite project", 
+  "main": "index.js", 
+  "scripts": { 
+    "dev": "vite", 
+    "prebuild": "npm install", 
+    "build": "vite build", 
+    "preview": "vite preview", 
+    "lint": "tsc --noEmit" 
+  }, 
+  "keywords": [ 
+    "vite", 
+    "typescript", 
+    "game", 
+    "merge-battle" 
+  ], 
+  "author": "", 
+  "license": "ISC", 
+  "keywords": [ 
+    "vite", 
+    "typescript", 
+    "game", 
+    "merge-battle" 
+  ], 
+  "author": "", 
