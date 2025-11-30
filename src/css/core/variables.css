@@ -1,0 +1,20 @@
+:root {
+    /* Colors */
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    
+    /* Game colors */
+    --grid-cell-size: 80px;
+    --grid-gap: 10px;
+    --inventory-bg: #2c3e50;
+    
+    /* Z-index layers */
+    --z-loading: 1000;
+    --z-error: 9999;
+    --z-modal: 100;
+    --z-ui: 10;
+    --z-game: 1;
+}

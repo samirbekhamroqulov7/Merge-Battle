@@ -1,0 +1,44 @@
+.error-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: var(--z-error);
+}
+
+.error-content {
+    background: #333;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.error-content h3 {
+    color: var(--danger-color);
+    margin-bottom: 15px;
+}
+
+.error-content p {
+    color: white;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+#error-reload {
+    background: var(--primary-color);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+#error-reload:hover {
+    background: #0056b3;
+}

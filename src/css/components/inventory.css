@@ -1,0 +1,126 @@
+/* Инвентарь и предметы */
+.game-item {
+    width: 90%;
+    height: 90%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    position: relative;
+}
+
+.game-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.game-item:active {
+    cursor: grabbing;
+    transform: scale(1.1);
+}
+
+.game-item.selected {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px gold;
+    z-index: 10;
+}
+
+/* Уровни предметов */
+.game-item.level-1 { font-size: 11px; }
+.game-item.level-2 { font-size: 12px; }
+.game-item.level-3 { font-size: 14px; }
+.game-item.level-4 { font-size: 16px; }
+.game-item.level-5 { font-size: 18px; }
+
+/* Типы предметов */
+.game-item.sword {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border: 2px solid #fff;
+}
+
+.game-item.shield {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    border: 2px solid #fff;
+}
+
+.game-item.potion {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    border: 2px solid #fff;
+}
+
+/* Эффекты для высоких уровней */
+.game-item.level-4 {
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.7);
+}
+
+.game-item.level-5 {
+    box-shadow: 0 0 15px rgba(230, 126, 34, 0.9);
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 0 0 15px rgba(230, 126, 34, 0.9);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(241, 196, 15, 1);
+    }
+}
+
+/* Панель инвентаря */
+.inventory-panel {
+    background: var(--inventory-bg, #2c3e50);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 10px;
+    border: 2px solid #34495e;
+}
+
+.inventory-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+}
+
+.stat-item {
+    text-align: center;
+    color: white;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.inventory-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.control-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.control-btn:hover {
+    background: #2980b9;
+}
+
+.control-btn:disabled {
+    background: #7f8c8d;
+    cursor: not-allowed;
+}

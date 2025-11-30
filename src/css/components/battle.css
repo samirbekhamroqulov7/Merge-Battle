@@ -1,0 +1,168 @@
+/* Режим битвы */
+.battle-mode .game-grid {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    border: 3px solid #e74c3c;
+}
+
+.battle-mode .grid-cell {
+    background: rgba(52, 73, 94, 0.8);
+    border: 2px solid #7f8c8d;
+}
+
+.battle-mode .grid-cell:hover {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #e74c3c;
+}
+
+.battle-mode .game-item {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Боевой интерфейс */
+.battle-ui {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(44, 62, 80, 0.9);
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #e74c3c;
+    color: white;
+    z-index: 100;
+}
+
+.battle-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 20px;
+}
+
+.player-health, .enemy-health {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.health-bar {
+    width: 100px;
+    height: 10px;
+    background: #7f8c8d;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.health-fill {
+    height: 100%;
+    background: #2ecc71;
+    transition: width 0.3s ease;
+}
+
+.enemy-health .health-fill {
+    background: #e74c3c;
+}
+
+.battle-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.battle-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.battle-btn:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+}
+
+.battle-btn:disabled {
+    background: #7f8c8d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Анимации боя */
+.attack-animation {
+    animation: attack 0.5s ease-in-out;
+}
+
+@keyframes attack {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(10px); }
+    50% { transform: translateX(-10px); }
+    100% { transform: translateX(0); }
+}
+
+.damage-text {
+    position: absolute;
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 14px;
+    animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+}
+
+/* Экран результатов боя */
+.battle-result {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(44, 62, 80, 0.95);
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    color: white;
+    z-index: 1000;
+    border: 3px solid #3498db;
+}
+
+.battle-result.victory {
+    border-color: #2ecc71;
+}
+
+.battle-result.defeat {
+    border-color: #e74c3c;
+}
+
+.result-title {
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.result-rewards {
+    margin: 15px 0;
+}
+
+.reward-item {
+    display: inline-block;
+    margin: 0 5px;
+    padding: 5px 10px;
+    background: #34495e;
+    border-radius: 5px;
+}

@@ -1,0 +1,121 @@
+/* Типография */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+}
+
+body {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+    color: #333;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Заголовки */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+    margin-bottom: 0.5em;
+    color: #2c3e50;
+}
+
+h1 {
+    font-size: var(--font-size-2xl);
+    color: #2c3e50;
+}
+
+h2 {
+    font-size: var(--font-size-xl);
+}
+
+h3 {
+    font-size: var(--font-size-lg);
+}
+
+/* Текст */
+p {
+    margin-bottom: 1em;
+    line-height: var(--line-height-normal);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Цвета текста */
+.text-primary { color: #3498db; }
+.text-success { color: #2ecc71; }
+.text-warning { color: #f39c12; }
+.text-danger { color: #e74c3c; }
+.text-muted { color: #7f8c8d; }
+.text-white { color: white; }
+
+/* Размеры текста */
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+.text-2xl { font-size: var(--font-size-2xl); }
+
+/* Насыщенность */
+.font-normal { font-weight: var(--font-weight-normal); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+
+/* Кнопки и интерактивные элементы */
+button, .btn {
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+}
+
+/* Сообщения и уведомления */
+.game-message {
+    font-weight: var(--font-weight-semibold);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Адаптивная типография */
+@media (max-width: 768px) {
+    :root {
+        --font-size-base: 14px;
+        --font-size-lg: 16px;
+        --font-size-xl: 18px;
+        --font-size-2xl: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --font-size-base: 13px;
+        --font-size-lg: 15px;
+        --font-size-xl: 17px;
+        --font-size-2xl: 19px;
+    }
+}
