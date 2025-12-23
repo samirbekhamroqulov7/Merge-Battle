@@ -26,16 +26,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsClient(true)
-  }, [])
 
-  useEffect(() => {
-    if (!isClient || typeof window === "undefined") return
-
-    const savedLang = localStorage.getItem("language") as Language
-    if (savedLang && translations[savedLang]) {
-      setLanguageState(savedLang)
+    if (typeof window !== "undefined") {
+      const savedLang = localStorage.getItem("language") as Language
+      if (savedLang && translations[savedLang]) {
+        setLanguageState(savedLang)
+      }
     }
-  }, [isClient])
+  }, [])
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang)
@@ -66,6 +64,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     },
     [language],
   )
+
+  if (!isClient) {
+    return <>{children}</>
+  }
 
   return <I18nContext.Provider value={{ language, setLanguage, t }}>{children}</I18nContext.Provider>
 }

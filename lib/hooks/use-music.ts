@@ -10,19 +10,17 @@ export function useMusic() {
 
   useEffect(() => {
     setIsClient(true)
-  }, [])
 
-  useEffect(() => {
-    if (!isClient || typeof window === "undefined") return
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("musicEnabled")
+      if (saved !== null) {
+        setMusicEnabled(saved === "true")
+      }
 
-    const saved = localStorage.getItem("musicEnabled")
-    if (saved !== null) {
-      setMusicEnabled(saved === "true")
+      audioRef.current = new Audio()
+      audioRef.current.loop = true
+      audioRef.current.volume = 0.3
     }
-
-    audioRef.current = new Audio()
-    audioRef.current.loop = true
-    audioRef.current.volume = 0.3
 
     return () => {
       if (audioRef.current) {
@@ -30,7 +28,7 @@ export function useMusic() {
         audioRef.current = null
       }
     }
-  }, [isClient])
+  }, [])
 
   const playMusic = useCallback(
     (track: string) => {
@@ -41,9 +39,8 @@ export function useMusic() {
         setCurrentTrack(track)
       }
 
-      audioRef.current.play().catch((error) => {
+      audioRef.current.play().catch(() => {
         // Silently handle autoplay restrictions
-        console.log("[v0] Music autoplay prevented:", error.message)
       })
     },
     [musicEnabled, currentTrack, isClient],
@@ -68,9 +65,7 @@ export function useMusic() {
     if (!newState && audioRef.current) {
       audioRef.current.pause()
     } else if (newState && currentTrack && audioRef.current) {
-      audioRef.current.play().catch((error) => {
-        console.log("[v0] Music play prevented:", error.message)
-      })
+      audioRef.current.play().catch(() => {})
     }
   }, [musicEnabled, currentTrack, isClient])
 
@@ -78,9 +73,7 @@ export function useMusic() {
     if (!isClient || !audioRef.current) return
 
     if (musicEnabled && currentTrack) {
-      audioRef.current.play().catch((error) => {
-        console.log("[v0] Music play prevented:", error.message)
-      })
+      audioRef.current.play().catch(() => {})
     } else {
       audioRef.current.pause()
     }

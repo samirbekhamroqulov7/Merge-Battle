@@ -27,12 +27,10 @@ function MusicProvider({ children }: { children: ReactNode }) {
         stopMusic()
       }
 
-      // Remove listeners after first interaction
       document.removeEventListener("click", handleUserInteraction)
       document.removeEventListener("keydown", handleUserInteraction)
     }
 
-    // Wait for user interaction before playing music (browser policy)
     document.addEventListener("click", handleUserInteraction)
     document.addEventListener("keydown", handleUserInteraction)
 
@@ -45,10 +43,24 @@ function MusicProvider({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function ClientOnlyProviders({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return <>{children}</>
+  }
+
+  return <MusicProvider>{children}</MusicProvider>
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <I18nProvider>
-      <MusicProvider>{children}</MusicProvider>
+      <ClientOnlyProviders>{children}</ClientOnlyProviders>
     </I18nProvider>
   )
 }

@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { useUser } from "@/lib/hooks/use-user"
-import { usePathname, useSearchParams } from "next/navigation"
 
 export function SessionRestorer() {
   const { refetch } = useUser()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -15,13 +12,15 @@ export function SessionRestorer() {
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || typeof window === "undefined") return
 
-    const checkForAuthRefresh = () => {
-      if (typeof window === "undefined") return
+    const checkForAuthRefresh = async () => {
+      const { usePathname, useSearchParams } = await import("next/navigation")
 
       const oauthComplete = document.cookie.includes("oauth_complete=true")
-      const isOAuthCallback = pathname === "/" && searchParams.get("oauth_success") === "true"
+      const currentPath = window.location.pathname
+      const searchParams = new URLSearchParams(window.location.search)
+      const isOAuthCallback = currentPath === "/" && searchParams.get("oauth_success") === "true"
       const needsRefresh = localStorage.getItem("brain_battle_needs_refresh") === "true"
 
       if (oauthComplete || isOAuthCallback || needsRefresh) {
@@ -48,14 +47,12 @@ export function SessionRestorer() {
     return () => {
       window.removeEventListener("popstate", handleRouteChange)
     }
-  }, [refetch, pathname, searchParams, mounted])
+  }, [refetch, mounted])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || typeof window === "undefined") return
 
     const interval = setInterval(() => {
-      if (typeof window === "undefined") return
-
       const hasSession = localStorage.getItem("brain_battle_session")
       const shouldPersist = localStorage.getItem("brain_battle_auto_login")
 
