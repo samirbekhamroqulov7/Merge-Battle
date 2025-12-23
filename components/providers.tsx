@@ -3,15 +3,20 @@
 import type { ReactNode } from "react"
 import { I18nProvider } from "@/lib/i18n/context"
 import { useMusic } from "@/lib/hooks/use-music"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 
 function MusicProvider({ children }: { children: ReactNode }) {
   const { playMusic, stopMusic } = useMusic()
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return
 
     const handleUserInteraction = () => {
       if (pathname === "/" || pathname === "/auth/login" || pathname === "/auth/sign-up") {
@@ -35,7 +40,7 @@ function MusicProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("click", handleUserInteraction)
       document.removeEventListener("keydown", handleUserInteraction)
     }
-  }, [pathname, playMusic, stopMusic])
+  }, [pathname, playMusic, stopMusic, mounted])
 
   return <>{children}</>
 }
