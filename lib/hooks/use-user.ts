@@ -34,6 +34,7 @@ export const useUser = () => {
       const username =
         authUser.user_metadata?.username ||
         authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
         authUser.email?.split("@")[0] ||
         `User_${Math.random().toString(36).substr(2, 6)}`
 
@@ -41,7 +42,10 @@ export const useUser = () => {
         auth_id: authUser.id,
         email: authUser.email,
         username: username.substring(0, 20),
-        avatar_url: authUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        avatar_url:
+          authUser.user_metadata?.avatar_url ||
+          authUser.user_metadata?.picture ||
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
         avatar_frame: "none",
         nickname_style: "normal",
         language: "ru",
@@ -52,18 +56,20 @@ export const useUser = () => {
         updated_at: new Date().toISOString(),
       }
 
-      const { data, error } = await supabase.from("users").insert(profileData).select().single()
+      const { data, error } = await supabase
+        .from("users")
+        .upsert(profileData, { onConflict: "auth_id" })
+        .select()
+        .single()
 
       if (error) {
-        if (error.code === "23505" || error.message.includes("duplicate")) {
-          const { data: existingProfile } = await supabase.from("users").select("*").eq("auth_id", authUser.id).single()
-          return existingProfile
-        }
+        console.error("[v0] Profile creation error:", error)
         return null
       }
 
       return data
-    } catch {
+    } catch (error) {
+      console.error("[v0] Profile creation exception:", error)
       return null
     }
   }, [])
@@ -72,78 +78,87 @@ export const useUser = () => {
     try {
       if (typeof window === "undefined") return
 
+      console.log("[v0] Fetching user data...")
       setLoading(true)
       const supabase = createClient()
-
-      const savedSession = localStorage.getItem("brain_battle_session")
-      const guestMode = localStorage.getItem("brain_battle_guest_mode")
-
-      if (savedSession && !guestMode) {
-        try {
-          const parsedSession = JSON.parse(savedSession)
-          const {
-            data: { session },
-            error,
-          } = await supabase.auth.setSession({
-            access_token: parsedSession.access_token,
-            refresh_token: parsedSession.refresh_token,
-          })
-
-          if (!error && session?.user) {
-            setUser(session.user)
-          }
-        } catch {
-          localStorage.removeItem("brain_battle_session")
-        }
-      }
 
       const {
         data: { session },
       } = await supabase.auth.getSession()
+
+      console.log("[v0] Current session:", session ? "exists" : "none")
+
+      if (!session) {
+        const savedSession = localStorage.getItem("brain_battle_session")
+        if (savedSession) {
+          try {
+            const parsedSession = JSON.parse(savedSession)
+            console.log("[v0] Restoring session from localStorage")
+
+            const {
+              data: { session: restoredSession },
+              error,
+            } = await supabase.auth.setSession({
+              access_token: parsedSession.access_token,
+              refresh_token: parsedSession.refresh_token,
+            })
+
+            if (error) {
+              console.error("[v0] Session restoration failed:", error)
+              localStorage.removeItem("brain_battle_session")
+              localStorage.removeItem("brain_battle_auto_login")
+            } else if (restoredSession) {
+              console.log("[v0] Session restored successfully")
+            }
+          } catch (error) {
+            console.error("[v0] Session parsing error:", error)
+            localStorage.removeItem("brain_battle_session")
+          }
+        }
+      }
+
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser()
 
       if (authUser) {
+        console.log("[v0] User authenticated:", authUser.id)
         setUser(authUser)
 
-        if (session) {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession()
+
+        if (currentSession) {
           localStorage.setItem(
             "brain_battle_session",
             JSON.stringify({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-              expires_at: session.expires_at,
+              access_token: currentSession.access_token,
+              refresh_token: currentSession.refresh_token,
+              expires_at: currentSession.expires_at,
             }),
           )
         }
 
-        const { data: profileData } = await supabase.from("users").select("*").eq("auth_id", authUser.id).maybeSingle()
+        const { data: profileData, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("auth_id", authUser.id)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error("[v0] Profile fetch error:", profileError)
+        }
 
         if (profileData) {
+          console.log("[v0] Profile loaded")
           setProfile(profileData)
         } else {
+          console.log("[v0] Creating new profile")
           const newProfile = await createUserProfile(authUser)
 
           if (newProfile) {
             setProfile(newProfile)
-          } else {
-            const tempProfile: Profile = {
-              id: "temp-" + Date.now(),
-              auth_id: authUser.id,
-              username: authUser.user_metadata?.username || authUser.email?.split("@")[0] || "Пользователь",
-              email: authUser.email || "",
-              avatar_url: authUser.user_metadata?.avatar_url || "",
-              avatar_frame: "none",
-              nickname_style: "normal",
-              isGuest: authUser.id?.startsWith("guest_") || false,
-              sound_enabled: true,
-              music_enabled: true,
-              language: "ru",
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }
-            setProfile(tempProfile)
           }
         }
 
@@ -158,36 +173,40 @@ export const useUser = () => {
           const { data: gloryData } = await supabase.from("glory").select("*").eq("user_id", authUser.id).maybeSingle()
           setGlory(gloryData)
         }
-      } else if (guestMode === "true") {
-        const guestProfile = localStorage.getItem("brain_battle_guest_profile")
-        if (guestProfile) {
-          try {
-            const parsedProfile = JSON.parse(guestProfile)
-            setProfile(parsedProfile)
-
-            const tempUser = {
-              id: parsedProfile.auth_id,
-              email: parsedProfile.email,
-              user_metadata: { is_guest: true },
-              app_metadata: {},
-              aud: "authenticated",
-              created_at: parsedProfile.created_at,
-            } as User
-            setUser(tempUser)
-          } catch {
-            // Silent error handling
-          }
-        }
       } else {
-        setUser(null)
-        setProfile(null)
-        setMastery(null)
-        setGlory(null)
+        const guestMode = localStorage.getItem("brain_battle_guest_mode")
+        if (guestMode === "true") {
+          const guestProfile = localStorage.getItem("brain_battle_guest_profile")
+          if (guestProfile) {
+            try {
+              const parsedProfile = JSON.parse(guestProfile)
+              setProfile(parsedProfile)
+
+              const tempUser = {
+                id: parsedProfile.auth_id,
+                email: parsedProfile.email,
+                user_metadata: { is_guest: true },
+                app_metadata: {},
+                aud: "authenticated",
+                created_at: parsedProfile.created_at,
+              } as User
+              setUser(tempUser)
+            } catch {
+              // Silent error handling
+            }
+          }
+        } else {
+          setUser(null)
+          setProfile(null)
+          setMastery(null)
+          setGlory(null)
+        }
       }
-    } catch {
-      // Silent error handling
+    } catch (error) {
+      console.error("[v0] fetchUserData error:", error)
     } finally {
       setLoading(false)
+      console.log("[v0] User data fetch complete")
     }
   }, [createUserProfile])
 
@@ -469,6 +488,8 @@ export const useUser = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[v0] Auth state change:", event)
+
       if (event === "SIGNED_IN" && session) {
         setUser(session.user)
         await fetchUserData()

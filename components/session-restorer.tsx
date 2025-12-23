@@ -2,52 +2,69 @@
 
 import { useEffect, useState } from "react"
 import { useUser } from "@/lib/hooks/use-user"
+import { createClient } from "@/lib/supabase/client"
 
 export function SessionRestorer() {
   const { refetch } = useUser()
   const [mounted, setMounted] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (!mounted || typeof window === "undefined") return
+    if (!mounted || typeof window === "undefined" || isRestoring) return
 
-    const checkForAuthRefresh = async () => {
-      const { usePathname, useSearchParams } = await import("next/navigation")
+    const restoreSession = async () => {
+      try {
+        setIsRestoring(true)
 
-      const oauthComplete = document.cookie.includes("oauth_complete=true")
-      const currentPath = window.location.pathname
-      const searchParams = new URLSearchParams(window.location.search)
-      const isOAuthCallback = currentPath === "/" && searchParams.get("oauth_success") === "true"
-      const needsRefresh = localStorage.getItem("brain_battle_needs_refresh") === "true"
+        const authRefresh = document.cookie.includes("auth_refresh=1")
+        const accessToken = document.cookie.match(/sb-access-token=([^;]+)/)?.[1]
+        const refreshToken = document.cookie.match(/sb-refresh-token=([^;]+)/)?.[1]
 
-      if (oauthComplete || isOAuthCallback || needsRefresh) {
-        refetch()
+        if (authRefresh && accessToken && refreshToken) {
+          console.log("[v0] Restoring session from OAuth callback")
 
-        document.cookie = "oauth_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
-        localStorage.removeItem("brain_battle_needs_refresh")
+          const supabase = createClient()
 
-        if (isOAuthCallback && window.history.replaceState) {
-          const newUrl = window.location.pathname
-          window.history.replaceState({}, "", newUrl)
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (!error && data.session) {
+            localStorage.setItem(
+              "brain_battle_session",
+              JSON.stringify({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+                expires_at: data.session.expires_at,
+              }),
+            )
+            localStorage.setItem("brain_battle_auto_login", "true")
+
+            document.cookie = "auth_refresh=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+            document.cookie = "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+            document.cookie = "sb-refresh-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+
+            await refetch()
+
+            console.log("[v0] Session restored successfully")
+          } else {
+            console.error("[v0] Failed to restore session:", error)
+          }
         }
+      } catch (error) {
+        console.error("[v0] Session restoration error:", error)
+      } finally {
+        setIsRestoring(false)
       }
     }
 
-    checkForAuthRefresh()
-
-    const handleRouteChange = () => {
-      setTimeout(checkForAuthRefresh, 100)
-    }
-
-    window.addEventListener("popstate", handleRouteChange)
-
-    return () => {
-      window.removeEventListener("popstate", handleRouteChange)
-    }
-  }, [refetch, mounted])
+    restoreSession()
+  }, [mounted, refetch, isRestoring])
 
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return
@@ -59,7 +76,7 @@ export function SessionRestorer() {
       if (hasSession && shouldPersist === "true") {
         refetch()
       }
-    }, 30000)
+    }, 30000) // Каждые 30 секунд
 
     return () => clearInterval(interval)
   }, [refetch, mounted])

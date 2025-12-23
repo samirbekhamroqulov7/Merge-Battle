@@ -20,11 +20,12 @@ export async function GET(request: Request) {
   try {
     const supabase = await createClient()
 
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    if (sessionError) throw sessionError
+    if (!sessionData.session) throw new Error("Session not created")
+
+    const user = sessionData.user
 
     if (!user) {
       return NextResponse.redirect(
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
     const username =
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
+      user.user_metadata?.user_name ||
       user.email?.split("@")[0] ||
       `User_${Math.random().toString(36).substr(2, 8)}`
 
@@ -43,8 +45,19 @@ export async function GET(request: Request) {
       user.user_metadata?.picture ||
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 
-    await supabase.from("users").upsert(
-      {
+    const { data: existingUser } = await supabase.from("users").select("id").eq("auth_id", user.id).maybeSingle()
+
+    if (existingUser) {
+      await supabase
+        .from("users")
+        .update({
+          email: user.email,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("auth_id", user.id)
+    } else {
+      const { error: insertError } = await supabase.from("users").insert({
         auth_id: user.id,
         email: user.email,
         username: username.substring(0, 20),
@@ -57,40 +70,55 @@ export async function GET(request: Request) {
         isGuest: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "auth_id",
-      },
-    )
+      })
 
-    try {
-      await supabase.from("mastery").upsert(
-        {
+      if (insertError) {
+        console.error("Profile creation error:", insertError)
+      }
+
+      try {
+        await supabase.from("mastery").insert({
           user_id: user.id,
           level: 1,
           mini_level: 0,
           fragments: 0,
           total_wins: 0,
           created_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      )
+        })
 
-      await supabase.from("glory").upsert(
-        {
+        await supabase.from("glory").insert({
           user_id: user.id,
           level: 1,
           wins: 0,
           total_glory_wins: 0,
           created_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      )
-    } catch {
-      // Silently handle mastery/glory creation errors
+        })
+      } catch (error) {
+        console.error("Mastery/Glory creation error:", error)
+      }
     }
 
     const response = NextResponse.redirect(new URL("/", requestUrl.origin))
+
+    response.cookies.set({
+      name: "sb-access-token",
+      value: sessionData.session.access_token,
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
+    })
+
+    response.cookies.set({
+      name: "sb-refresh-token",
+      value: sessionData.session.refresh_token,
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: "/",
+    })
 
     response.cookies.set({
       name: "auth_refresh",
@@ -104,6 +132,7 @@ export async function GET(request: Request) {
 
     return response
   } catch (error: any) {
+    console.error("Auth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/auth/error?message=${encodeURIComponent(error?.message || "Unexpected authentication error")}`,
