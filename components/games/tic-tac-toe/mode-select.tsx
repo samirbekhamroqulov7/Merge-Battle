@@ -21,7 +21,7 @@ export function ModeSelect({ onStartGame, onBack }: ModeSelectProps) {
   const aiLevels = [
     { id: "easy", label: "😊 EASY", desc: "For beginners" },
     { id: "normal", label: "😐 NORMAL", desc: "Balanced challenge" },
-    { id: "hard", label: "😡 HARD", desc: "Expert level" },
+    { id: "hard", label: "😎 HARD", desc: "Expert level" },
   ]
 
   return (
@@ -35,10 +35,10 @@ export function ModeSelect({ onStartGame, onBack }: ModeSelectProps) {
           ← Back
         </button>
 
-        {/* Header */}
+        {/* Header - УБРАЛИ "3D" */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            TIC-TAC-TOE 3D
+            TIC-TAC-TOE
           </h1>
           <p className="text-gray-400 text-lg">Select game mode and AI level</p>
         </div>
@@ -53,8 +53,8 @@ export function ModeSelect({ onStartGame, onBack }: ModeSelectProps) {
                 onClick={() => setSelectedMode(mode.id as GameMode)}
                 className={`
                   w-full p-6 rounded-2xl transition-all duration-300 transform
-                  ${selectedMode === mode.id 
-                    ? `bg-gradient-to-br ${mode.color} scale-105 shadow-2xl` 
+                  ${selectedMode === mode.id
+                    ? `bg-gradient-to-br ${mode.color} scale-105 shadow-2xl`
                     : "bg-gray-800/50 hover:bg-gray-800/80 hover:scale-[1.02]"}
                   border-2 ${selectedMode === mode.id ? "border-white/30" : "border-transparent"}
                 `}
@@ -76,8 +76,8 @@ export function ModeSelect({ onStartGame, onBack }: ModeSelectProps) {
                 onClick={() => setSelectedAI(ai.id as AILevel)}
                 className={`
                   w-full p-6 rounded-2xl transition-all duration-300 transform
-                  ${selectedAI === ai.id 
-                    ? "bg-gradient-to-br from-green-500 to-emerald-600 scale-105 shadow-2xl" 
+                  ${selectedAI === ai.id
+                    ? "bg-gradient-to-br from-green-500 to-emerald-600 scale-105 shadow-2xl"
                     : "bg-gray-800/50 hover:bg-gray-800/80 hover:scale-[1.02]"}
                   border-2 ${selectedAI === ai.id ? "border-white/30" : "border-transparent"}
                 `}
@@ -101,9 +101,9 @@ export function ModeSelect({ onStartGame, onBack }: ModeSelectProps) {
           </button>
         </div>
 
-        {/* Footer */}
+        {/* Footer - УБРАЛИ "3D board" */}
         <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Game features: 3D board • Smart AI • Multiple modes • Statistics</p>
+          <p>Game features: Smart AI • Multiple modes • Statistics</p>
         </div>
       </div>
     </div>

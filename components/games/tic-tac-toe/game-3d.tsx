@@ -1,12 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Board, GameMode } from "./types"
-import { getBoardSize } from "./game-logic"
-import { cn } from "@/lib/utils"
+import { GameMode, Player } from "./types"
 
 interface Game3DProps {
-  board: Board
+  board: Player[]
   gameMode: GameMode
   winningLine: number[] | null
   onCellClick: (index: number) => void
@@ -14,120 +11,99 @@ interface Game3DProps {
 }
 
 export function Game3D({ board, gameMode, winningLine, onCellClick, isPlayerTurn }: Game3DProps) {
-  const [hoveredCell, setHoveredCell] = useState<number | null>(null)
-  const size = getBoardSize(gameMode)
-  const cellSize = size <= 3 ? "w-20 h-20" : size <= 5 ? "w-16 h-16" : "w-12 h-12"
-
-  // Создаем 3D эффект с transform
-  const getCellStyle = (index: number) => {
-    const isHovered = hoveredCell === index
-    const isWinning = winningLine?.includes(index)
-    const row = Math.floor(index / size)
-    const col = index % size
-    
-    return {
-      transform: `
-        perspective(1000px)
-        rotateX(${isHovered ? -10 : 0}deg)
-        rotateY(${isHovered ? 10 : 0}deg)
-        translateZ(${isHovered ? 20 : 0}px)
-        translateX(${col * 2 - size + 1}px)
-        translateY(${row * 2 - size + 1}px)
-      `,
-      boxShadow: isWinning 
-        ? "0 0 30px #00ffaa, inset 0 0 20px rgba(0, 255, 170, 0.5)"
-        : isHovered
-        ? "0 10px 30px rgba(0, 200, 255, 0.5), inset 0 0 10px rgba(0, 200, 255, 0.2)"
-        : "0 5px 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1)",
-      background: isWinning
-        ? "linear-gradient(145deg, rgba(0, 255, 170, 0.3), rgba(0, 200, 255, 0.2))"
-        : "linear-gradient(145deg, rgba(30, 30, 40, 0.9), rgba(20, 20, 30, 0.9))",
-    }
-  }
+  const size = gameMode === "3x3" ? 3 : gameMode === "5x5" ? 5 : 7
+  const gridCols = size === 3 ? "grid-cols-3" : size === 5 ? "grid-cols-5" : "grid-cols-7"
+  const gap = size === 3 ? "gap-3" : size === 5 ? "gap-1.5" : "gap-1"
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
-      {/* 3D Container */}
-      <div 
-        className="relative"
-        style={{
-          transform: "perspective(1500px) rotateX(10deg)",
-          transformStyle: "preserve-3d",
-        }}
-      >
-        {/* Grid background with 3D effect */}
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-900/30 via-purple-900/30 to-cyan-900/30 shadow-2xl" />
-        
-        <div 
-          className="grid gap-4 p-8 rounded-3xl"
-          style={{
-            gridTemplateColumns: `repeat(${size}, 1fr)`,
-            background: "radial-gradient(circle at center, rgba(10, 15, 40, 0.9), rgba(5, 10, 30, 0.95))",
-            border: "2px solid rgba(100, 150, 255, 0.3)",
-          }}
-        >
-          {board.map((cell, index) => {
-            const isWinning = winningLine?.includes(index)
-            
-            return (
-              <button
-                key={index}
-                onClick={() => onCellClick(index)}
-                onMouseEnter={() => setHoveredCell(index)}
-                onMouseLeave={() => setHoveredCell(null)}
-                disabled={!!cell || !isPlayerTurn}
-                className={cn(
-                  "relative transition-all duration-300 rounded-xl flex items-center justify-center",
-                  cellSize,
-                  !cell && isPlayerTurn && "cursor-pointer hover:scale-110",
-                  cell ? "cursor-default" : "cursor-pointer",
-                  isWinning && "animate-pulse"
-                )}
-                style={getCellStyle(index)}
-              >
-                {/* 3D cell border */}
-                <div className="absolute inset-0 rounded-xl border-2 border-blue-500/30" />
-                
-                {/* Cell content */}
-                <div className="relative z-10">
-                  {cell === "X" && (
-                    <div className="relative">
-                      {/* 3D X symbol */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-3/4 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 transform rotate-45 rounded-full" />
-                        <div className="absolute w-3/4 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 transform -rotate-45 rounded-full" />
-                      </div>
-                      {/* Glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-blue-500/20 blur-md" />
-                    </div>
-                  )}
-                  
-                  {cell === "O" && (
-                    <div className="relative">
-                      {/* 3D O symbol */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-3/4 h-3/4 rounded-full border-4 border-gradient-to-r from-pink-400 to-purple-500" />
-                      </div>
-                      {/* Glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-md rounded-full" />
-                    </div>
-                  )}
-                  
-                  {/* Hover effect */}
-                  {!cell && isPlayerTurn && (
-                    <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                      <div className="w-full h-full bg-gradient-to-br from-cyan-500/10 to-blue-500/10 rounded-xl" />
-                    </div>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
+    <div className="flex justify-center items-center">
+      <div className={`grid ${gridCols} ${gap} bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-6 rounded-3xl shadow-2xl border border-gray-700/50`}>
+        {board.map((cell, index) => {
+          const isWinningCell = winningLine?.includes(index)
+          const cellSize = size === 3 ? "w-24 h-24 md:w-28 md:h-28" : 
+                         size === 5 ? "w-20 h-20 md:w-24 md:h-24" : 
+                         "w-16 h-16 md:w-20 md:h-20"
+          const textSize = size === 3 ? "text-5xl md:text-6xl" : 
+                         size === 5 ? "text-4xl md:text-5xl" : 
+                         "text-3xl md:text-4xl"
 
-        {/* 3D lighting effects */}
-        <div className="absolute -top-20 -left-20 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
+          return (
+            <button
+              key={index}
+              onClick={() => onCellClick(index)}
+              disabled={!!cell || !isPlayerTurn}
+              className={`
+                relative ${cellSize}
+                bg-gradient-to-br from-gray-800 to-gray-900
+                rounded-xl
+                flex items-center justify-center
+                transition-all duration-300
+                transform
+                ${!cell && isPlayerTurn ?
+                  'hover:scale-110 hover:-translate-y-2 hover:shadow-2xl hover:shadow-cyan-500/30 cursor-pointer' :
+                  'cursor-default'
+                }
+                ${cell ? 'scale-95' : ''}
+                shadow-lg
+                border border-gray-700/50
+                group
+              `}
+              style={{
+                transformStyle: 'preserve-3d',
+              }}
+            >
+              {/* 3D depth effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-700/50 to-gray-900/50 rounded-xl -z-10 translate-z-[-10px]"></div>
+
+              {/* Cell content with 3D effect */}
+              {cell === "X" && (
+                <div className="relative">
+                  <div className={`${textSize} font-bold text-transparent bg-gradient-to-br from-cyan-400 to-blue-500 bg-clip-text`}>
+                    X
+                  </div>
+                  <div className={`absolute inset-0 ${textSize} font-bold text-cyan-900/30 blur-sm`}>
+                    X
+                  </div>
+                </div>
+              )}
+
+              {cell === "O" && (
+                <div className="relative">
+                  <div className={`${textSize} font-bold text-transparent bg-gradient-to-br from-pink-400 to-red-500 bg-clip-text`}>
+                    O
+                  </div>
+                  <div className={`absolute inset-0 ${textSize} font-bold text-pink-900/30 blur-sm`}>
+                    O
+                  </div>
+                </div>
+              )}
+
+              {/* Empty cell hover effect */}
+              {!cell && isPlayerTurn && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="text-4xl text-gray-500/50">
+                    ?
+                  </div>
+                </div>
+              )}
+
+              {/* Winning cell effect */}
+              {isWinningCell && (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-xl animate-pulse"></div>
+                  <div className="absolute inset-0 border-4 border-gradient-to-r from-yellow-400 to-orange-500 rounded-xl animate-pulse"></div>
+                </>
+              )}
+
+              {/* Cell glow effect */}
+              <div className={`absolute inset-0 rounded-xl ${
+                isWinningCell ?
+                  'shadow-[0_0_40px_rgba(251,191,36,0.6)]' :
+                  'shadow-[0_0_20px_rgba(0,0,0,0.3)]'
+              } transition-shadow duration-300`}></div>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
