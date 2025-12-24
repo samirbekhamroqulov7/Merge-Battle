@@ -1,21 +1,30 @@
 "use server"
 
-// Реэкспорт функций из других модулей
-export { makeMove } from "./matchmaking-moves"
-export { findMatch, cancelSearch } from "./matchmaking-core"
-export { initializeGameState, generateMathProblems, generateFlagsQuestions, generateAnagramWords } from "./matchmaking-game-init"
+// Явные, статические экспортa — чтобы сборщик гарантированно видел все экспорты.
+// Экспортируем makeMove и другие серверные функции/типы из соответствующих модулей.
 
-// Типы также нужно реэкспортировать
+import { makeMove as _makeMove } from "./matchmaking-moves"
+import { findMatch as _findMatch, cancelSearch as _cancelSearch } from "./matchmaking-core"
+import {
+  initializeGameState as _initializeGameState,
+  generateMathProblems as _generateMathProblems,
+  generateFlagsQuestions as _generateFlagsQuestions,
+  generateAnagramWords as _generateAnagramWords,
+} from "./matchmaking-game-init"
+
+export const makeMove = _makeMove
+export const findMatch = _findMatch
+export const cancelSearch = _cancelSearch
+export const initializeGameState = _initializeGameState
+export const generateMathProblems = _generateMathProblems
+export const generateFlagsQuestions = _generateFlagsQuestions
+export const generateAnagramWords = _generateAnagramWords
+
+// Экспорт типов
 export type { MatchmakingResult, MatchState } from "./matchmaking-core"
 
-// The existing code for findMatch, cancelSearch, initializeGameState, generateMathProblems, generateFlagsQuestions, generateAnagramWords
-// and checkGameResult, applyMove, updatePlayerStats has been moved to separate modules.
-// The main matchmaking module now only re-exports functions and types from these modules.
-
-// initializeCheckersBoard, generateSudokuPuzzle, generateCrosswordGrid
-// Эти функции специфичны для определенных типов игр и оставлены здесь
-
-function initializeCheckersBoard() {
+// Локальные утилиты (явно экспортируем для совместимости)
+export function initializeCheckersBoard() {
   const board = Array(8)
     .fill(null)
     .map(() => Array(8).fill(null))
@@ -32,17 +41,14 @@ function initializeCheckersBoard() {
   return { board, currentPlayer: "white" }
 }
 
-function generateSudokuPuzzle() {
+export function generateSudokuPuzzle() {
   return Array(9)
     .fill(null)
     .map(() => Array(9).fill(0))
 }
 
-function generateCrosswordGrid() {
+export function generateCrosswordGrid() {
   return Array(10)
     .fill(null)
     .map(() => Array(10).fill(""))
 }
-
-// Также экспортируем локальные функции, если они нужны где-то еще
-export { initializeCheckersBoard, generateSudokuPuzzle, generateCrosswordGrid }

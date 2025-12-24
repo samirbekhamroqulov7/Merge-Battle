@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n/context"
 import { useRouter } from "next/navigation"
 import { Clock, User, Trophy, ArrowLeft } from "lucide-react"
 
-// Импорт игровых компонентов (оставлен без изменений — дизайн не трогал)
+// Импорт игровых компонентов (оставлен без изменений — дизайн сохранён)
 import { TicTacToeGame } from "@/components/games/tic-tac-toe"
 import { ChessGame } from "@/components/games/chess"
 import { CheckersGame } from "@/components/games/checkers"
@@ -34,7 +34,7 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
 
   useEffect(() => {
     setIsMyTurn(match.current_turn === currentUserId)
-  }, [match.current_turn, currentUserId])
+  }, [match?.current_turn, currentUserId])
 
   // Real-time обновления матча
   useEffect(() => {
@@ -49,7 +49,6 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
           filter: `id=eq.${matchId}`,
         },
         (payload) => {
-          // payload.new должен быть новым состоянием записи
           setMatch(payload.new)
           if (payload.new.status === "finished") {
             setShowResult(true)
@@ -60,10 +59,7 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
 
     return () => {
       try {
-        // removeChannel API: если у вас версия @supabase/supabase-js поддерживает channel.unsubscribe()
-        // вы можете вызвать channel.unsubscribe(); но createClient().removeChannel(channel) тоже встречается в коде проекта.
-        // Здесь вызываем removeChannel если оно доступно, иначе попытаемся вызвать unsubscribe.
-        // Это безопасный, мягкий cleanup.
+        // безопасный cleanup для разных версий supabase-js
         // @ts-ignore
         if (typeof supabase.removeChannel === "function") {
           // @ts-ignore
@@ -73,7 +69,7 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
           channel.unsubscribe()
         }
       } catch (e) {
-        // swallow cleanup errors
+        // ignore
       }
     }
   }, [matchId, supabase])
@@ -85,7 +81,6 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          // Время вышло - автоматический ход
           handleTimeout()
           return 60
         }
@@ -94,12 +89,10 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isMyTurn, match.status])
+  }, [isMyTurn, match?.status])
 
   const handleTimeout = useCallback(async () => {
-    // При таймауте - пропуск хода или случайный ход
     try {
-      // makeMove — серверная action (use server) re-exported через lib/pvp/matchmaking
       await makeMove(matchId, { timeout: true })
     } catch (error) {
       console.error("Timeout error:", error)
@@ -118,14 +111,12 @@ export function PvpMatch({ matchId, initialMatch, currentUserId }: PvpMatchProps
   }
 
   const getPlayerInfo = (playerId: string) => {
-    // оставляем логику как в исходном коде
     if (!match) return null
     if (playerId === match.player1_id) return { slot: 1, id: playerId }
     if (playerId === match.player2_id) return { slot: 2, id: playerId }
     return null
   }
 
-  // Рендер игрового блока в зависимости от типа игры
   const renderGame = () => {
     const gameType = match.game_type
     const gameProps = {
