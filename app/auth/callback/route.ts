@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -33,7 +34,20 @@ export async function GET(request: Request) {
       )
     }
 
-    console.log("OAuth callback - auth user:", authUser.id)
+    console.log("OAuth callback - auth user:", authUser.id, "email:", authUser.email)
+
+    // Создаем или обновляем профиль пользователя
+    const username =
+      authUser.user_metadata?.full_name ||
+      authUser.user_metadata?.name ||
+      authUser.user_metadata?.user_name ||
+      authUser.email?.split("@")[0] ||
+      `User_${Math.random().toString(36).substr(2, 8)}`
+
+    const avatarUrl =
+      authUser.user_metadata?.avatar_url ||
+      authUser.user_metadata?.picture ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 
     const { data: existingUser } = await supabase
       .from("users")
@@ -41,55 +55,12 @@ export async function GET(request: Request) {
       .eq("auth_id", authUser.id)
       .maybeSingle()
 
-    let userId: string
-
-    if (existingUser) {
-      console.log("User exists, updating profile")
-      userId = existingUser.id
-
-      const username =
-        authUser.user_metadata?.full_name ||
-        authUser.user_metadata?.name ||
-        authUser.user_metadata?.user_name ||
-        authUser.email?.split("@")[0] ||
-        `User_${Math.random().toString(36).substr(2, 8)}`
-
-      const avatarUrl =
-        authUser.user_metadata?.avatar_url ||
-        authUser.user_metadata?.picture ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
-
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({
-          email: authUser.email,
-          username: username.substring(0, 20),
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
-
-      if (updateError) {
-        console.error("Profile update error:", updateError)
-      }
-    } else {
-      console.log("Creating new user profile")
-
-      const username =
-        authUser.user_metadata?.full_name ||
-        authUser.user_metadata?.name ||
-        authUser.user_metadata?.user_name ||
-        authUser.email?.split("@")[0] ||
-        `User_${Math.random().toString(36).substr(2, 8)}`
-
-      const avatarUrl =
-        authUser.user_metadata?.avatar_url ||
-        authUser.user_metadata?.picture ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
+    if (!existingUser) {
+      console.log("Creating new user profile for:", authUser.id)
 
       const { data: newUser, error: insertError } = await supabase
         .from("users")
-        .insert({
+        .upsert({
           auth_id: authUser.id,
           email: authUser.email,
           username: username.substring(0, 20),
@@ -102,91 +73,113 @@ export async function GET(request: Request) {
           isGuest: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'auth_id'
         })
         .select("id")
         .single()
 
       if (insertError) {
-        console.error("Profile creation error:", insertError)
-        throw new Error("Failed to create user profile")
+        console.error("Profile creation error during OAuth:", insertError)
+        // Не прерываем процесс, продолжаем без профиля - он создастся через триггер или хуки
+      } else {
+        console.log("New user created with id:", newUser?.id)
+
+        // Пытаемся создать mastery и glory, но если ошибка - игнорируем
+        try {
+          await supabase.from("mastery").upsert({
+            user_id: newUser?.id,
+            level: 1,
+            mini_level: 0,
+            fragments: 0,
+            total_wins: 0,
+            created_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id'
+          })
+
+          await supabase.from("glory").upsert({
+            user_id: newUser?.id,
+            level: 1,
+            wins: 0,
+            total_glory_wins: 0,
+            created_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id'
+          })
+        } catch (innerError) {
+          console.error("Error creating mastery/glory during OAuth:", innerError)
+        }
       }
+    } else {
+      console.log("User exists, updating profile:", existingUser.id)
 
-      userId = newUser.id
-      console.log("New user created with id:", userId)
-
-      try {
-        const { error: masteryError } = await supabase.from("mastery").insert({
-          user_id: userId,
-          level: 1,
-          mini_level: 0,
-          fragments: 0,
-          total_wins: 0,
-          created_at: new Date().toISOString(),
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          email: authUser.email,
+          username: username.substring(0, 20),
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
         })
+        .eq("id", existingUser.id)
 
-        if (masteryError) {
-          console.error("Mastery creation error:", masteryError)
-        }
-
-        const { error: gloryError } = await supabase.from("glory").insert({
-          user_id: userId,
-          level: 1,
-          wins: 0,
-          total_glory_wins: 0,
-          created_at: new Date().toISOString(),
-        })
-
-        if (gloryError) {
-          console.error("Glory creation error:", gloryError)
-        }
-
-        console.log("Mastery and glory records created")
-      } catch (error) {
-        console.error("Error creating mastery/glory:", error)
+      if (updateError) {
+        console.error("Profile update error during OAuth:", updateError)
       }
     }
 
+    // Создаем ответ с куками
     const response = NextResponse.redirect(new URL("/", requestUrl.origin))
 
+    // Устанавливаем куки для сессии
+    const cookieStore = await cookies()
+    
     response.cookies.set({
       name: "sb-access-token",
       value: sessionData.session.access_token,
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 дней
       path: "/",
     })
 
     response.cookies.set({
       name: "sb-refresh-token",
       value: sessionData.session.refresh_token,
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 24 * 30, // 30 дней
       path: "/",
     })
 
+    // Устанавливаем флаг для клиента, что нужно обновить сессию
     response.cookies.set({
       name: "auth_refresh",
       value: "1",
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 10,
+      maxAge: 60, // 1 минута
       path: "/",
     })
 
-    console.log("Redirecting to home with session cookies")
+    console.log("OAuth callback successful, redirecting to home")
     return response
+
   } catch (error: any) {
     console.error("Auth callback error:", error)
+    
+    // Более информативное сообщение об ошибке
+    const errorMessage = error?.message || "Unexpected authentication error"
+    const safeErrorMessage = encodeURIComponent(
+      errorMessage.length > 100 ? errorMessage.substring(0, 100) + "..." : errorMessage
+    )
+    
     return NextResponse.redirect(
-      new URL(
-        `/auth/error?message=${encodeURIComponent(error?.message || "Unexpected authentication error")}`,
-        requestUrl.origin,
-      ),
+      new URL(`/auth/error?message=${safeErrorMessage}`, requestUrl.origin),
     )
   }
 }

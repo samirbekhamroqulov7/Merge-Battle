@@ -5,8 +5,9 @@ import { GameButton } from "@/components/ui/game-button"
 import { GameCard } from "@/components/ui/game-card"
 import { AlertTriangle, Home, LogIn } from "lucide-react"
 import { useI18n } from "@/lib/i18n/context"
+import { Suspense } from "react"
 
-export default function AuthErrorPage() {
+function ErrorContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { t } = useI18n()
@@ -25,7 +26,9 @@ export default function AuthErrorPage() {
         </h1>
         
         <p className="text-muted-foreground mb-6">
-          {message}
+          {message === "Failed to create user profile" 
+            ? "Не удалось создать профиль пользователя. Попробуйте еще раз или войдите другим способом."
+            : message}
         </p>
         
         <div className="space-y-3">
@@ -48,5 +51,17 @@ export default function AuthErrorPage() {
         </div>
       </GameCard>
     </div>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <ErrorContent />
+    </Suspense>
   )
 }

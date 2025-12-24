@@ -111,12 +111,14 @@ export const useUser = () => {
       setLoading(true)
       const supabase = createClient()
 
+      // Сначала проверяем сессию
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
       console.log("Current session:", session ? "exists" : "none")
 
+      // Если нет сессии, проверяем сохраненную сессию в localStorage
       if (!session) {
         const savedSession = localStorage.getItem("brain_battle_session")
         if (savedSession) {
@@ -148,6 +150,7 @@ export const useUser = () => {
             return
           }
         } else {
+          // Проверяем гостевой режим
           const guestProfile = localStorage.getItem("brain_battle_guest_profile")
           if (guestProfile) {
             try {
@@ -171,6 +174,7 @@ export const useUser = () => {
         }
       }
 
+      // Получаем текущего пользователя после восстановления сессии
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser()
@@ -185,9 +189,10 @@ export const useUser = () => {
         return
       }
 
-      console.log("User authenticated:", authUser.id)
+      console.log("User authenticated:", authUser.id, "email:", authUser.email)
       setUser(authUser)
 
+      // Сохраняем сессию в localStorage
       const {
         data: { session: currentSession },
       } = await supabase.auth.getSession()
@@ -204,10 +209,12 @@ export const useUser = () => {
         localStorage.setItem("brain_battle_auto_login", "true")
       }
 
-      let retries = 0
+      // Пытаемся получить профиль, с повторными попытками
       let profileData = null
+      let attempts = 0
+      const maxAttempts = 5
 
-      while (retries < 3 && !profileData) {
+      while (attempts < maxAttempts && !profileData) {
         const { data, error: profileError } = await supabase
           .from("users")
           .select("*")
@@ -215,72 +222,65 @@ export const useUser = () => {
           .maybeSingle()
 
         if (profileError) {
-          console.error("Profile fetch error:", profileError)
+          console.error(`Profile fetch attempt ${attempts + 1} error:`, profileError)
         }
 
         if (data) {
           profileData = data
+          console.log("Profile loaded:", profileData.id)
           break
         }
 
-        if (retries < 2) {
-          console.log(`Profile not found, retry ${retries + 1}/3`)
-          await new Promise((resolve) => setTimeout(resolve, 1000))
+        if (!data && attempts === 0) {
+          // Если профиль не найден с первой попытки, пытаемся создать его
+          console.log("Profile not found, attempting to create...")
+          const newProfile = await createUserProfile(authUser)
+          if (newProfile) {
+            profileData = newProfile
+            console.log("Profile created on demand:", newProfile.id)
+            break
+          }
         }
-        retries++
+
+        attempts++
+        if (attempts < maxAttempts) {
+          console.log(`Waiting for profile... attempt ${attempts + 1}/${maxAttempts}`)
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempts)) // Увеличиваем задержку
+        }
       }
 
       if (profileData) {
-        console.log("Profile loaded:", profileData.id)
         setProfile(profileData)
 
         if (!profileData.isGuest) {
-          const { data: masteryData } = await supabase
-            .from("mastery")
-            .select("*")
-            .eq("user_id", profileData.id)
-            .maybeSingle()
+          // Загружаем mastery и glory
+          const [masteryResult, gloryResult] = await Promise.allSettled([
+            supabase
+              .from("mastery")
+              .select("*")
+              .eq("user_id", profileData.id)
+              .maybeSingle(),
+            supabase
+              .from("glory")
+              .select("*")
+              .eq("user_id", profileData.id)
+              .maybeSingle(),
+          ])
 
-          if (masteryData) {
-            console.log("Mastery loaded")
-            setMastery(masteryData)
+          if (masteryResult.status === "fulfilled" && masteryResult.value.data) {
+            setMastery(masteryResult.value.data)
           }
 
-          const { data: gloryData } = await supabase
-            .from("glory")
-            .select("*")
-            .eq("user_id", profileData.id)
-            .maybeSingle()
-
-          if (gloryData) {
-            console.log("Glory loaded")
-            setGlory(gloryData)
+          if (gloryResult.status === "fulfilled" && gloryResult.value.data) {
+            setGlory(gloryResult.value.data)
           }
         }
       } else {
-        console.log("Creating profile manually after retries")
-        const newProfile = await createUserProfile(authUser)
-
-        if (newProfile) {
-          setProfile(newProfile)
-
-          if (!newProfile.isGuest) {
-            const { data: masteryData } = await supabase
-              .from("mastery")
-              .select("*")
-              .eq("user_id", newProfile.id)
-              .maybeSingle()
-            setMastery(masteryData)
-
-            const { data: gloryData } = await supabase
-              .from("glory")
-              .select("*")
-              .eq("user_id", newProfile.id)
-              .maybeSingle()
-            setGlory(gloryData)
-          }
-        }
+        console.error("Failed to load or create profile after", maxAttempts, "attempts")
+        // Не сбрасываем пользователя, чтобы не прерывать сессию
+        // Профиль может быть создан позже через триггер
       }
+
     } catch (error) {
       console.error("fetchUserData error:", error)
     } finally {
