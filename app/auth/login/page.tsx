@@ -94,7 +94,6 @@ export default function LoginPage() {
             created_at: new Date().toISOString(),
           })
         } catch {
-          // Silent error handling
         }
       }
 
@@ -132,7 +131,6 @@ export default function LoginPage() {
           created_at: new Date().toISOString(),
         })
       } catch {
-        // Silent error handling
       }
 
       router.push("/")

@@ -90,22 +90,56 @@ export const signInWithEmail = async (email: string, password: string) => {
 export const signUpWithEmail = async (email: string, password: string, username: string) => {
   const supabase = createClient()
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
-
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { username },
-      emailRedirectTo: `${siteUrl}/auth/callback`,
     },
   })
 
   if (signUpError) throw signUpError
 
-  return { isExistingUser: false, user: authData.user }
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (signInError) throw signInError
+
+  const { error: profileError } = await supabase.from("users").upsert({
+    auth_id: authData.user?.id || signInData.user?.id,
+    email: email,
+    username: username.substring(0, 20),
+    avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    avatar_frame: "none",
+    nickname_style: "normal",
+    language: "ru",
+    sound_enabled: true,
+    music_enabled: true,
+    isGuest: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })
+
+  if (profileError) {
+    console.error("Profile creation error:", profileError)
+  }
+
+  if (signInData.session && typeof window !== "undefined") {
+    localStorage.setItem(
+      "brain_battle_session",
+      JSON.stringify({
+        access_token: signInData.session.access_token,
+        refresh_token: signInData.session.refresh_token,
+        expires_at: signInData.session.expires_at,
+      }),
+    )
+    localStorage.setItem("brain_battle_auto_login", "true")
+    localStorage.setItem("brain_battle_username", username)
+  }
+
+  return { user: signInData.user, session: signInData.session }
 }
 
 export const signInAsGuest = async () => {
@@ -427,7 +461,6 @@ export const autoSaveProgress = async (gameState: Record<string, unknown>) => {
       })
     }
   } catch {
-    // Silent error handling
   }
 }
 

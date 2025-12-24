@@ -13,6 +13,29 @@ export async function POST(request: Request) {
 
     const supabase = await createClient()
 
+    const { data: existingUsers } = await supabase
+      .from("users")
+      .select("auth_id, email")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (existingUsers) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) {
+        return NextResponse.json({ error: "Invalid credentials" }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        user: signInData.user,
+        session: signInData.session,
+      })
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -26,21 +49,6 @@ export async function POST(request: Request) {
     })
 
     if (authError) {
-      if (authError.message.includes("already registered")) {
-        const { data: signInData } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (signInData.user) {
-          return NextResponse.json({
-            success: true,
-            user: signInData.user,
-            session: signInData.session,
-          })
-        }
-      }
-
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
@@ -50,7 +58,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not created" }, { status: 500 })
     }
 
-    await supabase.from("users").upsert({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      return NextResponse.json({ error: "Failed to sign in after registration" }, { status: 500 })
+    }
+
+    const { error: profileError } = await supabase.from("users").upsert({
       auth_id: user.id,
       email: user.email,
       username: finalUsername.substring(0, 20),
@@ -65,45 +82,28 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
 
-    try {
-      await supabase.from("mastery").upsert(
-        {
-          user_id: user.id,
-          level: 1,
-          mini_level: 0,
-          fragments: 0,
-          total_wins: 0,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      )
-
-      await supabase.from("glory").upsert(
-        {
-          user_id: user.id,
-          level: 1,
-          wins: 0,
-          total_glory_wins: 0,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      )
-    } catch {
-      // Silent error handling for mastery/glory
+    if (profileError) {
+      console.error("Profile creation error:", profileError)
     }
 
-    let session = null
     try {
-      const { data: signInData } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      await supabase.from("mastery").upsert({
+        user_id: user.id,
+        level: 1,
+        mini_level: 0,
+        fragments: 0,
+        total_wins: 0,
+        created_at: new Date().toISOString(),
       })
 
-      if (signInData.session) {
-        session = signInData.session
-      }
+      await supabase.from("glory").upsert({
+        user_id: user.id,
+        level: 1,
+        wins: 0,
+        total_glory_wins: 0,
+        created_at: new Date().toISOString(),
+      })
     } catch {
-      // Silent error if auto-signin fails
     }
 
     return NextResponse.json({
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
         email: user.email,
         username: finalUsername,
       },
-      session: session,
+      session: signInData.session,
     })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
