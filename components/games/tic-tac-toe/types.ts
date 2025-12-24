@@ -1,14 +1,8 @@
 export type Player = "X" | "O" | null;
 export type Board = Player[];
 export type GameMode = "3x3" | "5x5" | "7x7";
-export type AILevel = "novice" | "pro" | "grandmaster";
-export type Screen = "menu" | "game" | "settings";
-
-export interface GameStats {
-  playerWins: number;
-  aiWins: number;
-  draws: number;
-}
+export type AILevel = "easy" | "normal" | "hard";
+export type Screen = "mode" | "game" | "settings";
 
 export interface GameState {
   board: Board;
@@ -17,10 +11,20 @@ export interface GameState {
   winningLine: number[] | null;
   gameMode: GameMode;
   aiLevel: AILevel;
-  gameStarted: boolean;
+  isGameActive: boolean;
 }
 
-export interface Move {
+export interface GameStats {
+  wins: number;
+  losses: number;
+  draws: number;
+  streak: number;
+}
+
+export interface Cell3D {
+  x: number;
+  y: number;
+  z: number;
   index: number;
-  player: Player;
+  value: Player;
 }

@@ -1,84 +1,134 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Screen, GameMode, AILevel, GameStats } from "./types"
-import { MenuScreen } from "./menu-screen"
+import { Screen, GameMode, AILevel } from "./types"
+import { ModeSelect } from "./mode-select"
 import { GameScreen } from "./game-screen"
-import { useI18n } from "@/lib/i18n/context"
-import { GameLayout } from "@/components/games/game-layout"
+import { SettingsScreen } from "./settings-screen"
 
 export function TicTacToeGame() {
-  const { t } = useI18n()
-  const [screen, setScreen] = useState<Screen>("menu")
-  const [mode, setMode] = useState<GameMode>("3x3")
-  const [aiLevel, setAiLevel] = useState<AILevel>("novice")
-  const [stats, setStats] = useState<GameStats>({
-    playerWins: 0,
-    aiWins: 0,
+  const [screen, setScreen] = useState<Screen>("mode")
+  const [gameMode, setGameMode] = useState<GameMode>("3x3")
+  const [aiLevel, setAILevel] = useState<AILevel>("normal")
+  const [stats, setStats] = useState({
+    wins: 0,
+    losses: 0,
     draws: 0,
+    streak: 0,
   })
 
-  // Загрузка статистики из localStorage
+  // Load stats from localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedStats = localStorage.getItem("tic_tac_toe_stats")
-      if (savedStats) {
-        try {
-          setStats(JSON.parse(savedStats))
-        } catch (error) {
-          console.error("Ошибка загрузки статистики:", error)
-        }
+    const savedStats = localStorage.getItem("tic_tac_toe_stats")
+    if (savedStats) {
+      try {
+        setStats(JSON.parse(savedStats))
+      } catch (e) {
+        console.error("Failed to load stats:", e)
       }
     }
   }, [])
 
-  const handleStartGame = (selectedMode: GameMode) => {
-    setMode(selectedMode)
+  // Save stats to localStorage
+  useEffect(() => {
+    localStorage.setItem("tic_tac_toe_stats", JSON.stringify(stats))
+  }, [stats])
+
+  const handleStartGame = (mode: GameMode, ai: AILevel) => {
+    setGameMode(mode)
+    setAILevel(ai)
     setScreen("game")
   }
 
-  const handleBackToMenu = () => {
-    setScreen("menu")
+  const handleGameEnd = (result: "win" | "lose" | "draw") => {
+    setStats(prev => {
+      const newStats = { ...prev }
+      
+      if (result === "win") {
+        newStats.wins += 1
+        newStats.streak = Math.max(0, newStats.streak) + 1
+      } else if (result === "lose") {
+        newStats.losses += 1
+        newStats.streak = Math.min(0, newStats.streak) - 1
+      } else {
+        newStats.draws += 1
+      }
+      
+      return newStats
+    })
   }
 
-  const handleUpdateStats = (newStats: GameStats) => {
-    setStats(newStats)
+  const handleRestart = () => {
+    setScreen("game")
   }
+
+  const handleContinue = () => {
+    setScreen("game")
+  }
+
+  const handleExitToMenu = () => {
+    setScreen("mode")
+  }
+
+  // Get current game state for settings
+  const isGameActive = screen === "game"
 
   return (
-    <GameLayout gameName={t("games.ticTacToe")}>
-      <div className="min-h-[calc(100vh-120px)] w-full flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="rounded-2xl bg-gradient-to-br from-sky-900/80 via-indigo-900/80 to-purple-900/80 backdrop-blur-xl p-6 shadow-2xl">
-            {screen === "menu" && (
-              <MenuScreen
-                onStartGame={handleStartGame}
-                stats={stats}
-              />
-            )}
-
-            {screen === "game" && (
-              <GameScreen
-                mode={mode}
-                aiLevel={aiLevel}
-                stats={stats}
-                onUpdateStats={handleUpdateStats}
-                onBackToMenu={handleBackToMenu}
-              />
-            )}
-          </div>
-
-          {/* Game info footer */}
-          <div className="mt-4 text-center text-sm text-gray-400">
-            <p>Режим: {mode} | Уровень ИИ: {
-              aiLevel === "novice" ? "Новичок" :
-              aiLevel === "pro" ? "Профи" : "Гроссмейстер"
-            }</p>
+    <div className="relative">
+      {/* Stats display (only in game screen) */}
+      {screen === "game" && (
+        <div className="fixed top-4 right-4 z-10 bg-black/50 backdrop-blur-sm rounded-xl p-4">
+          <div className="text-white text-sm">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">{stats.wins}</div>
+                <div className="text-xs text-gray-400">WINS</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-400">{stats.losses}</div>
+                <div className="text-xs text-gray-400">LOSSES</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-400">{stats.draws}</div>
+                <div className="text-xs text-gray-400">DRAWS</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-cyan-400">
+                  {stats.streak > 0 ? `+${stats.streak}` : stats.streak}
+                </div>
+                <div className="text-xs text-gray-400">STREAK</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </GameLayout>
+      )}
+
+      {/* Current Screen */}
+      {screen === "mode" && (
+        <ModeSelect
+          onStartGame={handleStartGame}
+          onBack={() => window.history.back()}
+        />
+      )}
+
+      {screen === "game" && (
+        <GameScreen
+          mode={gameMode}
+          aiLevel={aiLevel}
+          onScreenChange={setScreen}
+          onGameEnd={handleGameEnd}
+        />
+      )}
+
+      {screen === "settings" && (
+        <SettingsScreen
+          onRestart={handleRestart}
+          onContinue={handleContinue}
+          onExit={handleExitToMenu}
+          onBack={() => setScreen("game")}
+          isGameActive={isGameActive}
+        />
+      )}
+    </div>
   )
 }
-
-export { TicTacToeGame }

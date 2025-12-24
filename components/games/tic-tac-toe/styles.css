@@ -1,0 +1,58 @@
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(0, 200, 255, 0.8);
+  }
+}
+
+.cell-3d {
+  transition: all 0.3s ease;
+  transform-style: preserve-3d;
+}
+
+.cell-3d:hover {
+  transform: translateZ(20px) rotateX(-10deg) rotateY(10deg);
+}
+
+.winning-cell {
+  animation: pulse-glow 1s infinite;
+}
+
+.game-container {
+  perspective: 1500px;
+}
+
+/* Gradient backgrounds */
+.bg-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #00b4d8, #0077b6);
+  border-radius: 4px;
+}
