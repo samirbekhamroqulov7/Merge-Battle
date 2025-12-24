@@ -59,46 +59,46 @@ export const useUser = () => {
       const { data, error } = await supabase
         .from("users")
         .upsert(profileData, { onConflict: "auth_id" })
-        .select("id, auth_id")
+        .select()
         .single()
 
       if (error) {
-        console.error("[v0] Profile creation error:", error)
+        console.error("Profile creation error:", error)
         return null
       }
 
-      console.log("[v0] Profile created/updated with id:", data.id)
+      console.log("Profile created/updated with id:", data.id)
 
-      const { data: existingMastery } = await supabase.from("mastery").select("id").eq("user_id", data.id).maybeSingle()
+      if (!profileData.isGuest) {
+        const { data: existingMastery } = await supabase.from("mastery").select("id").eq("user_id", data.id).maybeSingle()
 
-      if (!existingMastery && !profileData.isGuest) {
-        await supabase.from("mastery").insert({
-          user_id: data.id,
-          level: 1,
-          mini_level: 0,
-          fragments: 0,
-          total_wins: 0,
-          created_at: new Date().toISOString(),
-        })
+        if (!existingMastery) {
+          await supabase.from("mastery").insert({
+            user_id: data.id,
+            level: 1,
+            mini_level: 0,
+            fragments: 0,
+            total_wins: 0,
+            created_at: new Date().toISOString(),
+          })
+        }
+
+        const { data: existingGlory } = await supabase.from("glory").select("id").eq("user_id", data.id).maybeSingle()
+
+        if (!existingGlory) {
+          await supabase.from("glory").insert({
+            user_id: data.id,
+            level: 1,
+            wins: 0,
+            total_glory_wins: 0,
+            created_at: new Date().toISOString(),
+          })
+        }
       }
 
-      const { data: existingGlory } = await supabase.from("glory").select("id").eq("user_id", data.id).maybeSingle()
-
-      if (!existingGlory && !profileData.isGuest) {
-        await supabase.from("glory").insert({
-          user_id: data.id,
-          level: 1,
-          wins: 0,
-          total_glory_wins: 0,
-          created_at: new Date().toISOString(),
-        })
-      }
-
-      const { data: completeProfile } = await supabase.from("users").select("*").eq("id", data.id).single()
-
-      return completeProfile
+      return data
     } catch (error) {
-      console.error("[v0] Profile creation exception:", error)
+      console.error("Profile creation exception:", error)
       return null
     }
   }, [])
@@ -107,7 +107,7 @@ export const useUser = () => {
     try {
       if (typeof window === "undefined") return
 
-      console.log("[v0] Fetching user data...")
+      console.log("Fetching user data...")
       setLoading(true)
       const supabase = createClient()
 
@@ -115,14 +115,14 @@ export const useUser = () => {
         data: { session },
       } = await supabase.auth.getSession()
 
-      console.log("[v0] Current session:", session ? "exists" : "none")
+      console.log("Current session:", session ? "exists" : "none")
 
       if (!session) {
         const savedSession = localStorage.getItem("brain_battle_session")
         if (savedSession) {
           try {
             const parsedSession = JSON.parse(savedSession)
-            console.log("[v0] Restoring session from localStorage")
+            console.log("Restoring session from localStorage")
 
             const {
               data: { session: restoredSession },
@@ -133,40 +133,37 @@ export const useUser = () => {
             })
 
             if (error) {
-              console.error("[v0] Session restoration failed:", error)
+              console.error("Session restoration failed:", error)
               localStorage.removeItem("brain_battle_session")
               localStorage.removeItem("brain_battle_auto_login")
               setLoading(false)
               return
             } else if (restoredSession) {
-              console.log("[v0] Session restored successfully")
+              console.log("Session restored successfully")
             }
           } catch (error) {
-            console.error("[v0] Session parsing error:", error)
+            console.error("Session parsing error:", error)
             localStorage.removeItem("brain_battle_session")
             setLoading(false)
             return
           }
         } else {
-          const guestMode = localStorage.getItem("brain_battle_guest_mode")
-          if (guestMode === "true") {
-            const guestProfile = localStorage.getItem("brain_battle_guest_profile")
-            if (guestProfile) {
-              try {
-                const parsedProfile = JSON.parse(guestProfile)
-                setProfile(parsedProfile)
-                const tempUser = {
-                  id: parsedProfile.auth_id,
-                  email: parsedProfile.email,
-                  user_metadata: { is_guest: true },
-                  app_metadata: {},
-                  aud: "authenticated",
-                  created_at: parsedProfile.created_at,
-                } as User
-                setUser(tempUser)
-              } catch {
-                // Silent error handling
-              }
+          const guestProfile = localStorage.getItem("brain_battle_guest_profile")
+          if (guestProfile) {
+            try {
+              const parsedProfile = JSON.parse(guestProfile)
+              setProfile(parsedProfile)
+              const tempUser = {
+                id: parsedProfile.auth_id,
+                email: parsedProfile.email,
+                user_metadata: { is_guest: true },
+                app_metadata: {},
+                aud: "authenticated",
+                created_at: parsedProfile.created_at,
+              } as User
+              setUser(tempUser)
+            } catch {
+              // Silent error handling
             }
           }
           setLoading(false)
@@ -179,7 +176,7 @@ export const useUser = () => {
       } = await supabase.auth.getUser()
 
       if (!authUser) {
-        console.log("[v0] No authenticated user")
+        console.log("No authenticated user")
         setUser(null)
         setProfile(null)
         setMastery(null)
@@ -188,7 +185,7 @@ export const useUser = () => {
         return
       }
 
-      console.log("[v0] User authenticated:", authUser.id)
+      console.log("User authenticated:", authUser.id)
       setUser(authUser)
 
       const {
@@ -204,6 +201,7 @@ export const useUser = () => {
             expires_at: currentSession.expires_at,
           }),
         )
+        localStorage.setItem("brain_battle_auto_login", "true")
       }
 
       let retries = 0
@@ -217,7 +215,7 @@ export const useUser = () => {
           .maybeSingle()
 
         if (profileError) {
-          console.error("[v0] Profile fetch error:", profileError)
+          console.error("Profile fetch error:", profileError)
         }
 
         if (data) {
@@ -226,14 +224,14 @@ export const useUser = () => {
         }
 
         if (retries < 2) {
-          console.log(`[v0] Profile not found, retry ${retries + 1}/3`)
+          console.log(`Profile not found, retry ${retries + 1}/3`)
           await new Promise((resolve) => setTimeout(resolve, 1000))
         }
         retries++
       }
 
       if (profileData) {
-        console.log("[v0] Profile loaded:", profileData.id)
+        console.log("Profile loaded:", profileData.id)
         setProfile(profileData)
 
         if (!profileData.isGuest) {
@@ -244,7 +242,7 @@ export const useUser = () => {
             .maybeSingle()
 
           if (masteryData) {
-            console.log("[v0] Mastery loaded")
+            console.log("Mastery loaded")
             setMastery(masteryData)
           }
 
@@ -255,12 +253,12 @@ export const useUser = () => {
             .maybeSingle()
 
           if (gloryData) {
-            console.log("[v0] Glory loaded")
+            console.log("Glory loaded")
             setGlory(gloryData)
           }
         }
       } else {
-        console.log("[v0] Creating profile manually after retries")
+        console.log("Creating profile manually after retries")
         const newProfile = await createUserProfile(authUser)
 
         if (newProfile) {
@@ -284,10 +282,10 @@ export const useUser = () => {
         }
       }
     } catch (error) {
-      console.error("[v0] fetchUserData error:", error)
+      console.error("fetchUserData error:", error)
     } finally {
       setLoading(false)
-      console.log("[v0] User data fetch complete")
+      console.log("User data fetch complete")
     }
   }, [createUserProfile])
 
@@ -325,6 +323,21 @@ export const useUser = () => {
       try {
         const supabase = createClient()
 
+        const { data: existingProfile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("auth_id", user.id)
+          .maybeSingle()
+
+        if (!existingProfile) {
+          const newProfile = await createUserProfile(user)
+          if (newProfile) {
+            setProfile(newProfile)
+            return { isNew: true }
+          }
+          throw new Error("Профиль не найден и не может быть создан")
+        }
+
         const { error } = await supabase
           .from("users")
           .update({
@@ -334,13 +347,6 @@ export const useUser = () => {
           .eq("auth_id", user.id)
 
         if (error) {
-          if (error.code === "PGRST116") {
-            const newProfile = await createUserProfile(user)
-            if (newProfile) {
-              setProfile(newProfile)
-              return { isNew: true }
-            }
-          }
           throw error
         }
 
@@ -510,6 +516,7 @@ export const useUser = () => {
             expires_at: session.data.session.expires_at,
           }),
         )
+        localStorage.setItem("brain_battle_auto_login", "true")
       }
 
       return data.user
@@ -563,6 +570,7 @@ export const useUser = () => {
         expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
       }),
     )
+    localStorage.setItem("brain_battle_auto_login", "true")
 
     return guestProfile
   }, [])
@@ -573,7 +581,7 @@ export const useUser = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("[v0] Auth state change:", event)
+      console.log("Auth state change:", event)
 
       if (event === "SIGNED_IN" && session) {
         setUser(session.user)

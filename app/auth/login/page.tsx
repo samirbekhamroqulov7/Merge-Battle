@@ -71,7 +71,7 @@ export default function LoginPage() {
         })
 
         if (createError) {
-          if (!(createError.code === "23505" || createError.message.includes("duplicate"))) {
+          if (!(createError.code === "23505" || createError.message?.includes("duplicate"))) {
             throw createError
           }
         }
@@ -96,22 +96,22 @@ export default function LoginPage() {
         } catch {
           // Silent error handling
         }
-      } else {
-        const session = await supabase.auth.getSession()
-        if (session.data.session) {
-          localStorage.setItem(
-            "brain_battle_session",
-            JSON.stringify({
-              access_token: session.data.session.access_token,
-              refresh_token: session.data.session.refresh_token,
-              expires_at: session.data.session.expires_at,
-            }),
-          )
-          localStorage.setItem("brain_battle_auto_login", "true")
+      }
 
-          if (existingProfile.username) {
-            localStorage.setItem("brain_battle_username", existingProfile.username)
-          }
+      const session = await supabase.auth.getSession()
+      if (session.data.session) {
+        localStorage.setItem(
+          "brain_battle_session",
+          JSON.stringify({
+            access_token: session.data.session.access_token,
+            refresh_token: session.data.session.refresh_token,
+            expires_at: session.data.session.expires_at,
+          }),
+        )
+        localStorage.setItem("brain_battle_auto_login", "true")
+
+        if (existingProfile?.username) {
+          localStorage.setItem("brain_battle_username", existingProfile.username)
         }
       }
 
@@ -162,6 +162,10 @@ export default function LoginPage() {
     try {
       const { error } = await signInAsGuest()
       if (error) throw error
+      
+      localStorage.setItem("brain_battle_guest_mode", "true")
+      localStorage.setItem("brain_battle_auto_login", "true")
+      
       router.push("/")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
@@ -171,7 +175,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background safe-area-top safe-area-bottom">
-      {/* Header */}
       <div className="p-4">
         <GameButton variant="ghost" size="sm" onClick={() => router.push("/")}>
           <ArrowLeft className="w-5 h-5" />
@@ -237,7 +240,6 @@ export default function LoginPage() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            {/* Google Sign In */}
             <GameButton
               variant="outline"
               size="md"
@@ -270,7 +272,6 @@ export default function LoginPage() {
               {t("auth.loginWithGoogle")}
             </GameButton>
 
-            {/* Guest Login */}
             <GameButton
               variant="secondary"
               size="md"

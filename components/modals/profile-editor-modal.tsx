@@ -7,7 +7,7 @@ import { GameButton } from "@/components/ui/game-button"
 import { GameCard } from "@/components/ui/game-card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { X, Upload, Lock, CheckCircle2, Crown, Palette, Image, DollarSign, Zap, Star, Gem, CrownIcon, ShoppingCart, AlertCircle, User } from "lucide-react"
+import { X, Upload, Lock, CheckCircle2, Crown, Palette, Image, DollarSign, Zap, Star, Gem, CrownIcon, ShoppingCart, AlertCircle, User, Loader2 } from "lucide-react"
 import { AvatarCircle } from "@/components/ui/avatar-circle"
 import { toast } from "sonner"
 import { createCheckoutSession, isItemOwned, initDemoPurchases } from "@/lib/supabase/client"
@@ -25,34 +25,34 @@ const FREE_AVATARS = [
 ]
 
 const PREMIUM_AVATARS = [
-  { id: "phoenix", url: "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Phoenix", price: 4.99, name: "Феникс" },
-  { id: "samurai", url: "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Samurai", price: 4.99, name: "Самурай" },
-  { id: "cyber", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Cyber", price: 7.99, name: "Кибер" },
-  { id: "demon", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Demon", price: 7.99, name: "Демон" },
-  { id: "angel", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Angel", price: 9.99, name: "Ангел" },
-  { id: "dragon_legend", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Dragon", price: 299.99, name: "Дракон Легенды", super: true },
+  { id: "phoenix", url: "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Phoenix", price: 2.00, name: "Феникс" },
+  { id: "samurai", url: "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Samurai", price: 2.00, name: "Самурай" },
+  { id: "cyber", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Cyber", price: 2.00, name: "Кибер" },
+  { id: "demon", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Demon", price: 2.00, name: "Демон" },
+  { id: "angel", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Angel", price: 2.00, name: "Ангел" },
+  { id: "dragon_legend", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Dragon", price: 300.00, name: "Дракон Легенды", super: true },
 ]
 
 const FRAMES = [
   { id: "none", name: "Без рамки", premium: false, style: "border-2 border-border" },
   { id: "bronze", name: "Бронзовая", premium: false, style: "border-4 border-amber-600" },
   { id: "silver", name: "Серебряная", premium: false, style: "border-4 border-gray-400" },
-  { id: "gold", name: "Золотая", premium: true, style: "border-4 border-yellow-400", price: 9.99 },
-  { id: "platinum", name: "Платиновая", premium: true, style: "border-4 border-cyan-300", price: 19.99 },
-  { id: "diamond", name: "Алмазная", premium: true, style: "border-4 border-blue-400", price: 29.99 },
+  { id: "gold", name: "Золотая", premium: true, style: "border-4 border-yellow-400", price: 2.00 },
+  { id: "platinum", name: "Платиновая", premium: true, style: "border-4 border-cyan-300", price: 2.00 },
+  { id: "diamond", name: "Алмазная", premium: true, style: "border-4 border-blue-400", price: 2.00 },
   {
     id: "rainbow",
     name: "Радужная",
     premium: true,
     style: "border-4 border-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500",
-    price: 49.99,
+    price: 2.00,
   },
   {
     id: "legendary",
     name: "Легендарная",
     premium: true,
     style: "border-6 border-transparent bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 animate-pulse",
-    price: 299.99,
+    price: 300.00,
     super: true,
   },
 ]
@@ -65,56 +65,56 @@ const NICKNAME_STYLES = [
     name: "Огненный",
     premium: true,
     className: "bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent font-bold",
-    price: 4.99,
+    price: 2.00,
   },
   {
     id: "gradient2",
     name: "Океанский",
     premium: true,
     className: "bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold",
-    price: 4.99,
+    price: 2.00,
   },
   {
     id: "gradient3",
     name: "Королевский",
     premium: true,
     className: "bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent font-bold",
-    price: 4.99,
+    price: 2.00,
   },
   {
     id: "gradient4",
     name: "Лесной",
     premium: true,
     className: "bg-gradient-to-r from-green-500 to-emerald-500 bg-clip-text text-transparent font-bold",
-    price: 4.99,
+    price: 2.00,
   },
   {
     id: "neon",
     name: "Неоновый",
     premium: true,
     className: "bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent font-bold text-shadow-neon",
-    price: 9.99,
+    price: 2.00,
   },
   {
     id: "golden",
     name: "Золотой",
     premium: true,
     className: "bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent font-bold",
-    price: 14.99,
+    price: 2.00,
   },
   {
     id: "legendary",
     name: "Легендарный",
     premium: true,
     className: "bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent font-bold animate-pulse",
-    price: 299.99,
+    price: 300.00,
     super: true,
   },
 ]
 
 export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
   const { t } = useI18n()
-  const { profile, updateProfile, isGuest, user, quickGuestPlay } = useUser()
+  const { profile, updateProfile, isGuest, user, quickGuestPlay, refetch } = useUser()
   const [username, setUsername] = useState(profile?.username || "")
   const [selectedAvatar, setSelectedAvatar] = useState(profile?.avatar_url || FREE_AVATARS[0])
   const [selectedFrame, setSelectedFrame] = useState(profile?.avatar_frame || "none")
@@ -132,10 +132,8 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
   const currentFrame = FRAMES.find((f) => f.id === selectedFrame)
   const currentStyle = NICKNAME_STYLES.find((s) => s.id === selectedStyle)
 
-  // Инициализация данных из профиля
   useEffect(() => {
     if (profile) {
-      console.log("Загружен профиль:", profile)
       setUsername(profile.username || "")
       setSelectedAvatar(profile.avatar_url || FREE_AVATARS[0])
       setSelectedFrame(profile.avatar_frame || "none")
@@ -148,9 +146,7 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
       if (user?.id) {
         try {
           setLoadingOwnership(true)
-          console.log("Загрузка владения для пользователя:", user.id)
 
-          // Инициализируем демо-покупки для разработки
           if (process.env.NODE_ENV === 'development') {
             await initDemoPurchases(user.id)
           }
@@ -180,12 +176,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
             ownershipPromises.styles
           ])
 
-          console.log("Результаты проверки владения:", {
-            avatars: avatarResults.filter(r => r.owned),
-            frames: frameResults.filter(r => r.owned),
-            styles: styleResults.filter(r => r.owned)
-          })
-
           setOwnedAvatars(avatarResults.filter(r => r.owned).map(r => r.id))
           setOwnedFrames(frameResults.filter(r => r.owned).map(r => r.id))
           setOwnedStyles(styleResults.filter(r => r.owned).map(r => r.id))
@@ -196,7 +186,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
           setLoadingOwnership(false)
         }
       } else {
-        // Для гостей показываем базовые предметы
         setOwnedAvatars([])
         setOwnedFrames(['none', 'bronze', 'silver'])
         setOwnedStyles(['normal', 'bold'])
@@ -207,10 +196,8 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
     loadOwnership()
   }, [user])
 
-  // Слушаем события покупок
   useEffect(() => {
     const handleDemoPurchase = (e: CustomEvent) => {
-      console.log("Демо покупка завершена:", e.detail)
       if (e.detail.itemType === 'avatar') {
         setOwnedAvatars(prev => [...prev, e.detail.itemId])
       } else if (e.detail.itemType === 'frame') {
@@ -226,7 +213,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
     }
 
     const handleGuestPurchase = (e: CustomEvent) => {
-      console.log("Гостевая покупка завершена:", e.detail)
       toast.success(`Предмет "${e.detail.itemName}" куплен для гостя!`, {
         description: "Предмет доступен в этой сессии",
         duration: 3000,
@@ -269,7 +255,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
     fileInputRef.current?.click()
   }
 
-  // ИСПРАВЛЕННАЯ ФУНКЦИЯ СОХРАНЕНИЯ
   const handleSave = async () => {
     if (!username.trim()) {
       toast.error("Введите имя пользователя")
@@ -283,13 +268,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
 
     setIsSaving(true)
     try {
-      console.log("Сохранение профиля...", {
-        username: username.trim(),
-        avatar_url: uploadedImage || selectedAvatar,
-        avatar_frame: selectedFrame,
-        nickname_style: selectedStyle,
-      })
-
       const result = await updateProfile({
         username: username.trim(),
         avatar_url: uploadedImage || selectedAvatar,
@@ -311,24 +289,24 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
         })
       }
 
-      // Даем время увидеть сообщение об успехе
+      await refetch()
+      
       setTimeout(() => {
         onClose()
       }, 2000)
     } catch (error: any) {
       console.error("Failed to save profile:", error)
       
-      // Более информативное сообщение об ошибке
       let errorMessage = "Не удалось сохранить изменения"
       let errorDescription = "Попробуйте еще раз"
       
-      if (error.message.includes("duplicate") || error.message.includes("уже существует")) {
+      if (error.message?.includes("duplicate") || error.message?.includes("уже существует")) {
         errorMessage = "Это имя пользователя уже занято"
         errorDescription = "Пожалуйста, выберите другое имя"
-      } else if (error.message.includes("auth") || error.message.includes("авторизации")) {
+      } else if (error.message?.includes("auth") || error.message?.includes("авторизации")) {
         errorMessage = "Проблема с авторизацией"
         errorDescription = "Попробуйте войти снова"
-      } else if (error.message.includes("network") || !navigator.onLine) {
+      } else if (error.message?.includes("network") || !navigator.onLine) {
         errorMessage = "Проблема с интернетом"
         errorDescription = "Проверьте подключение и попробуйте еще раз"
       }
@@ -344,19 +322,17 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
 
   const handleBuyPremium = async (item: any, type: 'frame' | 'style' | 'avatar') => {
     if (!user) {
-      // Предлагаем гостевой режим
       const shouldContinue = window.confirm(
         "Для покупки предметов нужна регистрация.\n\n" +
         "Хотите продолжить как гость? Гостевые покупки будут доступны только в этой сессии."
       )
       
       if (shouldContinue) {
-        const guestProfile = quickGuestPlay()
+        quickGuestPlay()
         toast.info("Гостевой режим активирован", {
           description: "Теперь вы можете покупать предметы",
           duration: 3000,
         })
-        // Даем время для создания профиля
         setTimeout(() => {
           handleBuyPremium(item, type)
         }, 1000)
@@ -389,7 +365,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
         })
       }
 
-      // Открываем в новом окне
       const newWindow = window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
       if (newWindow) {
         newWindow.opener = null
@@ -399,9 +374,9 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
       console.error('Purchase error:', error)
       
       let errorMessage = "Ошибка при покупке"
-      if (error.message.includes("не авторизован")) {
+      if (error.message?.includes("не авторизован")) {
         errorMessage = "Пожалуйста, войдите в аккаунт"
-      } else if (error.message.includes("сеть")) {
+      } else if (error.message?.includes("сеть")) {
         errorMessage = "Проблема с интернет-соединением"
       }
       
@@ -429,7 +404,6 @@ export function ProfileEditorModal({ onClose }: ProfileEditorModalProps) {
           <>
             <h2 className="text-2xl font-bold text-primary mb-6">Редактирование профиля</h2>
 
-            {/* Информация о гостевом режиме */}
             {isGuest && (
               <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <div className="flex items-start gap-2">

@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       )
     }
 
-    console.log("[v0] OAuth callback - auth user:", authUser.id)
+    console.log("OAuth callback - auth user:", authUser.id)
 
     const { data: existingUser } = await supabase
       .from("users")
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     let userId: string
 
     if (existingUser) {
-      console.log("[v0] User exists, updating profile")
+      console.log("User exists, updating profile")
       userId = existingUser.id
 
       const username =
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         authUser.user_metadata?.picture ||
         `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("users")
         .update({
           email: authUser.email,
@@ -68,8 +68,12 @@ export async function GET(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId)
+
+      if (updateError) {
+        console.error("Profile update error:", updateError)
+      }
     } else {
-      console.log("[v0] Creating new user profile")
+      console.log("Creating new user profile")
 
       const username =
         authUser.user_metadata?.full_name ||
@@ -103,12 +107,12 @@ export async function GET(request: Request) {
         .single()
 
       if (insertError) {
-        console.error("[v0] Profile creation error:", insertError)
+        console.error("Profile creation error:", insertError)
         throw new Error("Failed to create user profile")
       }
 
       userId = newUser.id
-      console.log("[v0] New user created with id:", userId)
+      console.log("New user created with id:", userId)
 
       try {
         const { error: masteryError } = await supabase.from("mastery").insert({
@@ -121,7 +125,7 @@ export async function GET(request: Request) {
         })
 
         if (masteryError) {
-          console.error("[v0] Mastery creation error:", masteryError)
+          console.error("Mastery creation error:", masteryError)
         }
 
         const { error: gloryError } = await supabase.from("glory").insert({
@@ -133,12 +137,12 @@ export async function GET(request: Request) {
         })
 
         if (gloryError) {
-          console.error("[v0] Glory creation error:", gloryError)
+          console.error("Glory creation error:", gloryError)
         }
 
-        console.log("[v0] Mastery and glory records created")
+        console.log("Mastery and glory records created")
       } catch (error) {
-        console.error("[v0] Error creating mastery/glory:", error)
+        console.error("Error creating mastery/glory:", error)
       }
     }
 
@@ -174,10 +178,10 @@ export async function GET(request: Request) {
       path: "/",
     })
 
-    console.log("[v0] Redirecting to home with session cookies")
+    console.log("Redirecting to home with session cookies")
     return response
   } catch (error: any) {
-    console.error("[v0] Auth callback error:", error)
+    console.error("Auth callback error:", error)
     return NextResponse.redirect(
       new URL(
         `/auth/error?message=${encodeURIComponent(error?.message || "Unexpected authentication error")}`,
