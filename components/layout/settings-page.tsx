@@ -8,17 +8,17 @@ import { GameButton } from "@/components/ui/game-button"
 import { GameCard } from "@/components/ui/game-card"
 import { languages } from "@/lib/i18n/translations"
 import { useRouter } from "next/navigation"
-import { 
-  ArrowLeft, 
-  Settings, 
-  Globe, 
-  Volume2, 
-  User, 
-  HelpCircle, 
-  LogOut, 
-  Check, 
-  Loader2, 
-  Music, 
+import {
+  ArrowLeft,
+  Settings,
+  Globe,
+  Volume2,
+  User,
+  HelpCircle,
+  LogOut,
+  Check,
+  Loader2,
+  Music,
   Pencil,
   AlertCircle,
   Sparkles,
@@ -35,7 +35,6 @@ const AccountPanel = () => {
   const { user, profile, isGuest, signOut, refetch, loading: userLoading } = useUser()
   const [showProfileEditor, setShowProfileEditor] = useState(false)
   const router = useRouter()
-  const [retryCount, setRetryCount] = useState(0)
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
@@ -43,17 +42,16 @@ const AccountPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (isClient && user && !profile && !userLoading && retryCount < 3) {
+    if (isClient && user && !profile && !userLoading) {
       const timer = setTimeout(() => {
         refetch()
-        setRetryCount(prev => prev + 1)
-      }, 1000 * (retryCount + 1))
-      
+      }, 2000)
+
       return () => clearTimeout(timer)
     }
-  }, [isClient, user, profile, userLoading, refetch, retryCount])
+  }, [isClient, user, profile, userLoading, refetch])
 
-  if (userLoading && retryCount === 0) {
+  if (userLoading) {
     return (
       <GameCard className="p-8 text-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
@@ -84,6 +82,19 @@ const AccountPanel = () => {
     )
   }
 
+  if (user && !profile && !userLoading) {
+    return (
+      <GameCard className="p-6 text-center">
+        <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Профиль не найден</h3>
+        <p className="text-muted-foreground mb-4">
+          Попытка восстановить профиль...
+        </p>
+        <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
+      </GameCard>
+    )
+  }
+
   const currentFrame = profile?.avatar_frame || "none"
   const frameStyle = currentFrame === "gold" ? "border-4 border-yellow-400" :
                     currentFrame === "platinum" ? "border-4 border-cyan-300" :
@@ -96,13 +107,13 @@ const AccountPanel = () => {
   return (
     <div className="relative group">
       <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000" />
-      
+
       <GameCard className="p-8 relative">
         <div className="flex flex-col items-center text-center mb-6">
           <div className={`relative rounded-full p-2 mb-4 ${frameStyle}`}>
-            <AvatarCircle 
-              src={profile?.avatar_url} 
-              size="xl" 
+            <AvatarCircle
+              src={profile?.avatar_url}
+              size="xl"
               className="border-4 border-background"
             />
             <button
@@ -112,9 +123,9 @@ const AccountPanel = () => {
               <Pencil className="w-5 h-5 text-white" />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-3 mb-2">
-            <h3 className={`text-3xl font-bold ${profile?.nickname_style === "normal" ? "text-foreground" : 
+            <h3 className={`text-3xl font-bold ${profile?.nickname_style === "normal" ? "text-foreground" :
                          profile?.nickname_style === "bold" ? "text-foreground font-bold" :
                          profile?.nickname_style === "gradient1" ? "bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent font-bold" :
                          profile?.nickname_style === "gradient2" ? "bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent font-bold" :
@@ -127,12 +138,12 @@ const AccountPanel = () => {
               <Sparkles className="w-5 h-5 text-yellow-500" />
             )}
           </div>
-          
+
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
             <Smartphone className="w-4 h-4" />
             <span>Устройство сохранено</span>
           </div>
-          
+
           <p className="text-sm text-muted-foreground">
             {user.email}
             {isGuest && (
@@ -157,7 +168,7 @@ const AccountPanel = () => {
               <LogOut className="w-4 h-4 mr-2" />
               {t("auth.logout")}
             </GameButton>
-            
+
             <GameButton
               variant="ghost"
               className="flex-1"
@@ -169,7 +180,7 @@ const AccountPanel = () => {
               Сменить аккаунт
             </GameButton>
           </div>
-          
+
           <GameButton
             variant="outline"
             className="w-full"
@@ -199,7 +210,7 @@ const AccountPanel = () => {
           </div>
         )}
       </GameCard>
-      
+
       {showProfileEditor && <ProfileEditorModal onClose={() => setShowProfileEditor(false)} />}
     </div>
   )

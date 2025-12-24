@@ -1,55 +1,68 @@
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { validatePassword } from "@/lib/auth/validation"
-import { hashPassword } from "@/lib/auth/password"
-import { getResetToken, markTokenAsUsed } from "@/lib/database/reset-tokens"
-import { updateUserPassword } from "@/lib/database/users"
 
 export async function POST(request: Request) {
   try {
-    const { code, email, newPassword } = await request.json()
+    const { email, code, newPassword } = await request.json()
 
-    if (!code || !email || !newPassword) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    console.log("[v0] Verifying reset code for:", email)
+
+    if (!email || !code || !newPassword) {
+      return NextResponse.json({ error: "Email, code, and new password are required" }, { status: 400 })
     }
 
-    // Validate password
-    const passwordValidation = validatePassword(newPassword)
-    if (!passwordValidation.valid) {
-      return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+    if (newPassword.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
-    // Get reset token
-    const resetToken = await getResetToken(code)
+    const supabase = await createClient()
 
-    if (!resetToken) {
-      return NextResponse.json({ error: "Invalid or expired code" }, { status: 400 })
+    // Find valid reset code
+    const { data: resetCode } = await supabase
+      .from("password_reset_codes")
+      .select("*")
+      .eq("email", email)
+      .eq("code", code)
+      .eq("used", false)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!resetCode) {
+      console.log("[v0] Invalid or expired reset code")
+      return NextResponse.json({ error: "Invalid or expired reset code" }, { status: 400 })
     }
 
-    // Check if token is expired
-    if (new Date(resetToken.expires_at) < new Date()) {
-      return NextResponse.json({ error: "Code has expired" }, { status: 400 })
+    console.log("[v0] Valid reset code found, updating password")
+
+    // Get user's auth_id
+    const { data: user } = await supabase.from("users").select("auth_id").eq("email", email).maybeSingle()
+
+    if (!user || !user.auth_id) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Check if email matches
-    if (resetToken.email !== email) {
-      return NextResponse.json({ error: "Invalid code" }, { status: 400 })
+    // Update password in Supabase Auth using admin API
+    // Note: This requires service role key, so we'll use the auth.updateUser method
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.auth_id, { password: newPassword })
+
+    if (updateError) {
+      console.error("[v0] Failed to update password:", updateError)
+      return NextResponse.json({ error: "Failed to update password" }, { status: 500 })
     }
 
-    // Hash new password
-    const passwordHash = await hashPassword(newPassword)
+    // Mark code as used
+    await supabase.from("password_reset_codes").update({ used: true }).eq("id", resetCode.id)
 
-    // Update password
-    await updateUserPassword(email, passwordHash)
-
-    // Mark token as used
-    await markTokenAsUsed(code)
+    console.log("[v0] Password updated successfully")
 
     return NextResponse.json({
       success: true,
       message: "Password updated successfully",
     })
   } catch (error) {
-    console.error("[v0] Reset verify error:", error)
-    return NextResponse.json({ error: "Failed to reset password" }, { status: 500 })
+    console.error("[v0] Password reset verification error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

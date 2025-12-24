@@ -1,51 +1,46 @@
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { getSession } from "@/lib/auth/session"
-import { getUserById } from "@/lib/database/users"
-import { getMasteryByUserId, getGloryByUserId } from "@/lib/database/mastery"
 
 export async function GET() {
   try {
-    const session = await getSession()
+    const supabase = await createClient()
 
-    if (!session) {
-      return NextResponse.json({ user: null })
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json({ user: null }, { status: 200 })
     }
 
-    const user = await getUserById(session.userId)
+    const { data: profile } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_id", user.id)
+      .maybeSingle()
 
-    if (!user) {
-      return NextResponse.json({ user: null })
-    }
+    const { data: mastery } = await supabase
+      .from("mastery")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-    // Get mastery and glory if not guest
-    let mastery = null
-    let glory = null
-
-    if (!user.isGuest) {
-      ;[mastery, glory] = await Promise.all([getMasteryByUserId(user.id), getGloryByUserId(user.id)])
-    }
+    const { data: glory } = await supabase
+      .from("glory")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
     return NextResponse.json({
       user: {
         id: user.id,
-        auth_id: user.auth_id,
         email: user.email,
-        username: user.username,
-        avatar_url: user.avatar_url,
-        avatar_frame: user.avatar_frame,
-        nickname_style: user.nickname_style,
-        language: user.language,
-        sound_enabled: user.sound_enabled,
-        music_enabled: user.music_enabled,
-        isGuest: user.isGuest,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
+        ...profile
       },
+      profile,
       mastery,
-      glory,
+      glory
     })
   } catch (error) {
-    console.error("[v0] Get user error:", error)
-    return NextResponse.json({ error: "Failed to get user" }, { status: 500 })
+    console.error("[v0] /api/auth/me error:", error)
+    return NextResponse.json({ user: null }, { status: 500 })
   }
 }

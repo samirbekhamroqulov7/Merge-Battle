@@ -5,21 +5,25 @@ export async function POST(request: Request) {
   try {
     const { email, password, username } = await request.json()
 
+    console.log("[v0] Registration started for:", email)
+
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
     const finalUsername = username || email.split("@")[0] || `user_${Date.now()}`
-
     const supabase = await createClient()
 
-    const { data: existingUsers } = await supabase
+    // Check if user already exists
+    const { data: existingUser } = await supabase
       .from("users")
       .select("auth_id, email")
       .eq("email", email)
       .maybeSingle()
 
-    if (existingUsers) {
+    // If user exists, just sign them in
+    if (existingUser) {
+      console.log("[v0] User exists, signing in")
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -36,6 +40,9 @@ export async function POST(request: Request) {
       })
     }
 
+    console.log("[v0] Creating new user")
+
+    // Create new auth user with auto-confirm
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -44,11 +51,12 @@ export async function POST(request: Request) {
           username: finalUsername,
           full_name: finalUsername,
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback`,
       },
     })
 
     if (authError) {
+      console.error("[v0] Auth creation failed:", authError)
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
@@ -58,15 +66,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User not created" }, { status: 500 })
     }
 
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    console.log("[v0] Auth user created, creating profile")
 
-    if (signInError) {
-      return NextResponse.json({ error: "Failed to sign in after registration" }, { status: 500 })
-    }
-
+    // Create user profile
     const { error: profileError } = await supabase.from("users").upsert({
       auth_id: user.id,
       email: user.email,
@@ -83,9 +85,13 @@ export async function POST(request: Request) {
     })
 
     if (profileError) {
-      console.error("Profile creation error:", profileError)
+      console.error("[v0] Profile creation error:", profileError)
+      return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
     }
 
+    console.log("[v0] Profile created, initializing stats")
+
+    // Initialize mastery and glory
     try {
       await supabase.from("mastery").upsert({
         user_id: user.id,
@@ -103,19 +109,37 @@ export async function POST(request: Request) {
         total_glory_wins: 0,
         created_at: new Date().toISOString(),
       })
-    } catch {
+
+      console.log("[v0] Stats initialized successfully")
+    } catch (statsError) {
+      console.error("[v0] Stats initialization error:", statsError)
+      // Continue anyway
     }
+
+    // Sign in immediately after registration
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      console.error("[v0] Auto sign-in failed:", signInError)
+      return NextResponse.json({
+        success: true,
+        user: { id: user.id, email: user.email, username: finalUsername },
+        message: "Account created, please sign in",
+      })
+    }
+
+    console.log("[v0] Registration completed successfully")
 
     return NextResponse.json({
       success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: finalUsername,
-      },
+      user: signInData.user,
       session: signInData.session,
     })
-  } catch {
+  } catch (error) {
+    console.error("[v0] Registration error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

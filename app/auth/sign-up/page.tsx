@@ -10,12 +10,14 @@ import { GameCard } from "@/components/ui/game-card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useI18n } from "@/lib/i18n/context"
-import { Loader2, Mail, Lock, User, ArrowLeft, AlertCircle } from "lucide-react"
+import { Loader2, Mail, Lock, User, ArrowLeft, AlertCircle, Chrome } from "lucide-react"
+import { signUpWithEmail, signInWithGoogle } from "@/lib/supabase/client"
 
 export default function SignUpPage() {
   const { t } = useI18n()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     email: "",
@@ -28,32 +30,38 @@ export default function SignUpPage() {
     setLoading(true)
     setError(null)
 
+    console.log("[v0] Sign up attempt:", {
+      email: formData.email,
+      username: formData.username,
+      passwordLength: formData.password.length,
+    })
+
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          username: formData.username,
-        }),
-      })
+      await signUpWithEmail(formData.email, formData.password, formData.username)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed")
-      }
-
+      console.log("[v0] Registration successful, redirecting to home...")
       router.push("/")
       router.refresh()
     } catch (error: unknown) {
-      console.error("[v0] Registration error:", error)
-      setError(error instanceof Error ? error.message : "Registration failed")
+      const errorMessage = error instanceof Error ? error.message : "Registration failed"
+      console.error("[v0] Registration error:", errorMessage)
+      setError(errorMessage)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true)
+    setError(null)
+
+    try {
+      await signInWithGoogle()
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Google sign-up failed"
+      console.error("[v0] Google sign-up error:", errorMessage)
+      setError(errorMessage)
+      setIsGoogleLoading(false)
     }
   }
 
@@ -89,6 +97,7 @@ export default function SignUpPage() {
                     maxLength={20}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">3-20 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -126,11 +135,12 @@ export default function SignUpPage() {
                     minLength={6}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
               </div>
 
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded">
-                  <AlertCircle className="w-4 h-4 text-destructive" />
+                  <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
               )}
@@ -146,6 +156,30 @@ export default function SignUpPage() {
                 )}
               </GameButton>
             </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
+            <GameButton
+              variant="secondary"
+              size="md"
+              className="w-full mb-4"
+              onClick={handleGoogleSignUp}
+              disabled={isGoogleLoading || loading}
+            >
+              {isGoogleLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              ) : (
+                <Chrome className="w-5 h-5 mr-2" />
+              )}
+              Continue with Google
+            </GameButton>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
               {t("auth.already_have_account")}{" "}

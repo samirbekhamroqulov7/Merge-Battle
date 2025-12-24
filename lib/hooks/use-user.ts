@@ -1,48 +1,70 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import type { Profile, Mastery, Glory, User } from "./use-user-types"
+import {
+  fetchUserFromAPI,
+  updateProfileAPI,
+  registerGameAccountAPI,
+  createGuestAccountAPI,
+  signOutAPI,
+} from "./use-user-api"
+import {
+  getGuestProfileFromStorage,
+  createQuickGuestProfile,
+  saveGuestToStorage,
+  clearGuestStorage,
+} from "./use-user-guest"
+import { createClient } from "@/lib/supabase/client"
 
-interface Profile {
-  id: string
-  auth_id: string
-  username: string
-  email: string
-  avatar_url?: string
-  avatar_frame?: string
-  nickname_style?: string
-  isGuest: boolean
-  sound_enabled: boolean
-  music_enabled: boolean
-  language: string
-  created_at: string
-  updated_at: string
-}
+async function ensureUserProfile(userId: string, email: string) {
+  try {
+    const supabase = createClient()
+    
+    const { data: existingProfile } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_id", userId)
+      .maybeSingle()
 
-interface Mastery {
-  id: string
-  user_id: string
-  level: number
-  mini_level: number
-  fragments: number
-  total_wins: number
-  created_at: string
-  updated_at: string
-}
+    if (existingProfile) {
+      return existingProfile
+    }
 
-interface Glory {
-  id: string
-  user_id: string
-  level: number
-  wins: number
-  total_glory_wins: number
-  created_at: string
-  updated_at: string
-}
+    const username = email.split("@")[0] || `user_${Date.now()}`
+    
+    const { data: newProfile, error } = await supabase
+      .from("users")
+      .upsert({
+        auth_id: userId,
+        email: email,
+        username: username.substring(0, 20),
+        avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        avatar_frame: "none",
+        nickname_style: "normal",
+        language: "ru",
+        sound_enabled: true,
+        music_enabled: true,
+        isGuest: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'auth_id',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single()
 
-interface User {
-  id: string
-  email: string
-  user_metadata?: Record<string, unknown>
+    if (error) {
+      console.error("[v0] Failed to create user profile:", error)
+      return null
+    }
+
+    return newProfile
+  } catch (error) {
+    console.error("[v0] ensureUserProfile error:", error)
+    return null
+  }
 }
 
 export const useUser = () => {
@@ -56,33 +78,38 @@ export const useUser = () => {
     try {
       setLoading(true)
 
-      const response = await fetch("/api/auth/me")
-      const data = await response.json()
+      const data = await fetchUserFromAPI()
 
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email,
-          user_metadata: {},
-        })
-        setProfile(data.user)
-        setMastery(data.mastery)
-        setGlory(data.glory)
-      } else {
-        // Check for guest profile in localStorage
-        const guestProfile = localStorage.getItem("brain_battle_guest_profile")
-        if (guestProfile) {
-          try {
-            const parsedProfile = JSON.parse(guestProfile)
-            setProfile(parsedProfile)
-            setUser({
-              id: parsedProfile.auth_id,
-              email: parsedProfile.email,
-              user_metadata: { is_guest: true },
-            })
-          } catch {
-            // Silent error
+      if (data && data.user) {
+        if (!data.profile && data.user.id) {
+          const profile = await ensureUserProfile(data.user.id, data.user.email)
+          
+          if (profile) {
+            setUser(data.user)
+            setProfile(profile)
+            setMastery(data.mastery)
+            setGlory(data.glory)
+          } else {
+            setUser(null)
+            setProfile(null)
+            setMastery(null)
+            setGlory(null)
           }
+        } else {
+          setUser(data.user)
+          setProfile(data.profile)
+          setMastery(data.mastery)
+          setGlory(data.glory)
+        }
+      } else {
+        const guestProfile = getGuestProfileFromStorage()
+        if (guestProfile) {
+          setProfile(guestProfile)
+          setUser({
+            id: guestProfile.auth_id,
+            email: guestProfile.email,
+            user_metadata: { is_guest: true },
+          })
         }
       }
     } catch (error) {
@@ -98,132 +125,45 @@ export const useUser = () => {
         throw new Error("No profile to update")
       }
 
-      try {
-        const response = await fetch("/api/auth/update-profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to update profile")
-        }
-
-        setProfile((prev) => (prev ? { ...prev, ...updates } : null))
-
-        return { isNew: false }
-      } catch (error) {
-        throw error
-      }
+      const result = await updateProfileAPI(updates)
+      setProfile((prev) => (prev ? { ...prev, ...updates } : null))
+      return result
     },
     [profile],
   )
 
   const signOut = useCallback(async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      setUser(null)
-      setProfile(null)
-      setMastery(null)
-      setGlory(null)
-      localStorage.removeItem("brain_battle_guest_profile")
-      localStorage.removeItem("brain_battle_guest_mode")
-      localStorage.removeItem("brain_battle_session")
-      localStorage.removeItem("brain_battle_auto_login")
-    } catch (error) {
-      console.error("[v0] signOut error:", error)
-    }
+    await signOutAPI()
+    setUser(null)
+    setProfile(null)
+    setMastery(null)
+    setGlory(null)
+    clearGuestStorage()
   }, [])
 
   const registerGameAccount = useCallback(
     async (gameUsername: string) => {
-      try {
-        const response = await fetch("/api/auth/register-game-account", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: gameUsername }),
-        })
-
-        if (!response.ok) {
-          throw new Error("Failed to register game account")
-        }
-
-        await fetchUserData()
-        localStorage.setItem("brain_battle_username", gameUsername)
-        localStorage.setItem("brain_battle_registered", "true")
-
-        return { isNew: true }
-      } catch (error) {
-        throw error
-      }
+      const result = await registerGameAccountAPI(gameUsername)
+      await fetchUserData()
+      localStorage.setItem("brain_battle_username", gameUsername)
+      localStorage.setItem("brain_battle_registered", "true")
+      return result
     },
     [fetchUserData],
   )
 
   const createGuestAccount = useCallback(async () => {
-    try {
-      const response = await fetch("/api/auth/guest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create guest account")
-      }
-
-      await fetchUserData()
-      localStorage.setItem("brain_battle_auto_login", "true")
-
-      return user
-    } catch (error) {
-      console.error("[v0] createGuestAccount error:", error)
-      throw error
-    }
+    await createGuestAccountAPI()
+    await fetchUserData()
+    localStorage.setItem("brain_battle_auto_login", "true")
+    return user
   }, [fetchUserData, user])
 
   const quickGuestPlay = useCallback(() => {
-    if (typeof window === "undefined") return null
-
-    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
-    const guestUsername = `Guest_${guestId.slice(-4)}`
-
-    const guestProfile: Profile = {
-      id: guestId,
-      auth_id: guestId,
-      username: guestUsername,
-      email: `guest_${Date.now()}@brainbattle.com`,
-      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${guestUsername}`,
-      avatar_frame: "none",
-      nickname_style: "normal",
-      isGuest: true,
-      sound_enabled: true,
-      music_enabled: true,
-      language: "ru",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
-    const tempUser: User = {
-      id: guestId,
-      email: guestProfile.email,
-      user_metadata: { is_guest: true, guest_name: guestUsername },
-    }
-
+    const { user: tempUser, profile: guestProfile } = createQuickGuestProfile()
     setUser(tempUser)
     setProfile(guestProfile)
-
-    localStorage.setItem("brain_battle_guest_profile", JSON.stringify(guestProfile))
-    localStorage.setItem("brain_battle_guest_mode", "true")
-    localStorage.setItem(
-      "brain_battle_session",
-      JSON.stringify({
-        access_token: "guest_token_" + Date.now(),
-        refresh_token: "guest_refresh_" + Date.now(),
-        expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      }),
-    )
-    localStorage.setItem("brain_battle_auto_login", "true")
-
+    saveGuestToStorage(guestProfile)
     return guestProfile
   }, [])
 
