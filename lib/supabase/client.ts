@@ -1,9 +1,13 @@
 import { createBrowserClient } from "@supabase/ssr"
 
 export function createClient() {
-  return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 }
 
+// Guest mode functions
 export const enableGuestMode = () => {
   if (typeof window !== "undefined") {
     localStorage.setItem("brain_battle_guest_mode", "true")
@@ -37,6 +41,7 @@ export const getGuestSession = () => {
   return null
 }
 
+// Auth functions
 export const signInWithEmail = async (email: string, password: string) => {
   const response = await fetch("/api/auth/login", {
     method: "POST",
@@ -93,11 +98,58 @@ export const signOut = async () => {
   return await response.json()
 }
 
+// Google OAuth function (ИСПРАВЛЕННАЯ версия)
 export const signInWithGoogle = async () => {
-  // In production, implement proper OAuth flow
-  throw new Error("Google sign-in not yet configured. Please use email/password or guest mode.")
+  const supabase = createClient()
+  
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent'
+      }
+    }
+  })
+  
+  if (error) {
+    throw new Error(`Google sign-in failed: ${error.message}`)
+  }
+  
+  return data
 }
 
+// User management
+export const getCurrentUser = async () => {
+  const supabase = createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  
+  if (error) {
+    throw error
+  }
+  
+  return user
+}
+
+export const getUserProfile = async (userId: string) => {
+  const supabase = createClient()
+  
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single()
+  
+  if (error) {
+    console.error("Error fetching user profile:", error)
+    return null
+  }
+  
+  return data
+}
+
+// Purchase functions
 export const createCheckoutSession = async (itemType: string, itemId: string, itemName: string, price: number) => {
   const response = await fetch("/api/auth/me")
   const data = await response.json()
@@ -259,6 +311,7 @@ export const isItemOwned = async (userId: string, itemType: string, itemId: stri
   }
 }
 
+// Game progress functions
 export const recordGameProgress = async (gameId: string, score: number, win: boolean) => {
   const supabase = createClient()
 
@@ -363,6 +416,7 @@ export const autoSaveProgress = async (gameState: Record<string, unknown>) => {
   } catch {}
 }
 
+// Demo functions
 export const initDemoPurchases = async (userId: string) => {
   if (typeof window === "undefined" || process.env.NODE_ENV !== "development") {
     return
@@ -406,4 +460,16 @@ export const initDemoPurchases = async (userId: string) => {
   const allPurchases = existingPurchases ? JSON.parse(existingPurchases) : []
   allPurchases.push(...demoPurchases)
   localStorage.setItem("brain_battle_demo_purchases", JSON.stringify(allPurchases))
+}
+
+// Session helper
+export const refreshSession = async () => {
+  const supabase = createClient()
+  const { data: { session }, error } = await supabase.auth.getSession()
+  
+  if (error) {
+    throw error
+  }
+  
+  return session
 }
