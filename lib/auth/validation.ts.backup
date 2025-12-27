@@ -1,0 +1,86 @@
+export function validateEmail(email: string): { valid: boolean; error?: string } {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  if (!email) {
+    return { valid: false, error: "Email is required" }
+  }
+
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: "Invalid email format" }
+  }
+
+  return { valid: true }
+}
+
+export function validatePassword(password: string): { valid: boolean; error?: string } {
+  if (!password) {
+    return { valid: false, error: "Password is required" }
+  }
+
+  if (password.length < 6) {
+    return { valid: false, error: "Password must be at least 6 characters" }
+  }
+
+  return { valid: true }
+}
+
+export function validateUsername(username: string): { valid: boolean; error?: string } {
+  if (!username) {
+    return { valid: false, error: "Username is required" }
+  }
+
+  if (username.length < 3) {
+    return { valid: false, error: "Username must be at least 3 characters" }
+  }
+
+  if (username.length > 20) {
+    return { valid: false, error: "Username must be less than 20 characters" }
+  }
+
+  const usernameRegex = /^[a-zA-Z0-9_-]+$/
+  if (!usernameRegex.test(username)) {
+    return { valid: false, error: "Username can only contain letters, numbers, underscores and hyphens" }
+  }
+
+  return { valid: true }
+}
+<<<<<<< HEAD
+
+// Добавьте эти функции в конец файла lib/auth/validation.ts:
+
+// Функция генерации 6-значного кода
+export function generateVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+// Функция валидации кода
+export function validateVerificationCode(code: string): { valid: boolean; error?: string } {
+  if (!code || code.length !== 6) {
+    return { valid: false, error: "Код должен содержать 6 цифр" }
+  }
+  
+  if (!/^\d+$/.test(code)) {
+    return { valid: false, error: "Код должен содержать только цифры" }
+  }
+  
+  return { valid: true }
+}
+
+// Функция отправки email (режим разработки - выводит в консоль)
+export async function sendVerificationEmail(email: string, code: string): Promise<boolean> {
+  try {
+    console.log(`[DEV MODE] Verification code for ${email}: ${code}`)
+    console.log(`В реальной среде код будет отправлен на email`)
+    
+    // В продакшене используйте Resend или другой email сервис
+    // const RESEND_API_KEY = process.env.RESEND_API_KEY
+    // if (RESEND_API_KEY) { ... }
+    
+    return true
+  } catch (error) {
+    console.error("Failed to send verification email:", error)
+    return false
+  }
+}
+=======
+>>>>>>> c7954cd6063a05854bf6716bc8e43b8cd9bfb257

@@ -1,0 +1,151 @@
+import { NextResponse } from "next/server"
+<<<<<<< HEAD
+import { validateEmail, validatePassword, validateUsername, generateVerificationCode, sendVerificationEmail } from "@/lib/auth/validation"
+import { hashPassword } from "@/lib/auth/password"
+import { getUserByEmail } from "@/lib/database/users"
+import { getDatabase } from "@/lib/database/client"
+=======
+import { validateEmail, validatePassword, validateUsername } from "@/lib/auth/validation"
+import { hashPassword } from "@/lib/auth/password"
+import { createSession } from "@/lib/auth/session"
+import { createUser, getUserByEmail } from "@/lib/database/users"
+import { createMastery, createGlory } from "@/lib/database/mastery"
+>>>>>>> c7954cd6063a05854bf6716bc8e43b8cd9bfb257
+
+export async function POST(request: Request) {
+  try {
+    const { email, password, username } = await request.json()
+
+    // Validate input
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
+      return NextResponse.json({ error: emailValidation.error }, { status: 400 })
+    }
+
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.valid) {
+      return NextResponse.json({ error: passwordValidation.error }, { status: 400 })
+    }
+
+    const usernameValidation = validateUsername(username)
+    if (!usernameValidation.valid) {
+      return NextResponse.json({ error: usernameValidation.error }, { status: 400 })
+    }
+
+    // Check if user exists
+    const existingUser = await getUserByEmail(email)
+    if (existingUser) {
+<<<<<<< HEAD
+      return NextResponse.json({ error: "Email уже зарегистрирован" }, { status: 400 })
+    }
+
+    // Generate verification code
+    const verificationCode = generateVerificationCode()
+    
+    // Отправляем код подтверждения
+    const emailSent = await sendVerificationEmail(email, verificationCode)
+    
+    if (!emailSent) {
+      return NextResponse.json({ error: "Не удалось отправить код подтверждения" }, { status: 500 })
+=======
+      return NextResponse.json({ error: "Email already registered" }, { status: 400 })
+>>>>>>> c7954cd6063a05854bf6716bc8e43b8cd9bfb257
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(password)
+
+<<<<<<< HEAD
+    // Create user in pending state (без сессии и мастерства пока)
+    const authId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    const sql = getDatabase()
+    
+    const [newUser] = await sql`
+      INSERT INTO users (
+        auth_id, email, username, password_hash, 
+        avatar_url, avatar_frame, nickname_style,
+        language, sound_enabled, music_enabled, isGuest,
+        is_verified
+      )
+      VALUES (
+        ${authId}, 
+        ${email}, 
+        ${username}, 
+        ${passwordHash},
+        ${"https://api.dicebear.com/7.x/avataaars/svg?seed=" + username},
+        'none',
+        'normal',
+        'ru',
+        true,
+        true,
+        false,
+        false
+      )
+      RETURNING *
+    `
+
+    // Сохраняем код подтверждения в отдельной таблице
+    // Сначала создайте таблицу verification_codes:
+    // CREATE TABLE verification_codes (
+    //   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    //   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    //   code VARCHAR(6) NOT NULL,
+    //   email VARCHAR(255) NOT NULL,
+    //   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    //   used BOOLEAN DEFAULT false,
+    //   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    // );
+    
+    await sql`
+      INSERT INTO verification_codes (
+        user_id, code, email, expires_at
+      )
+      VALUES (
+        ${newUser.id},
+        ${verificationCode},
+        ${email},
+        ${new Date(Date.now() + 10 * 60 * 1000).toISOString()} // 10 минут
+      )
+    `
+
+    return NextResponse.json({
+      success: true,
+      message: "6-значный код подтверждения отправлен на ваш email",
+      requiresVerification: true,
+      email: email,
+      userId: newUser.id
+=======
+    // Create user
+    const authId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    const newUser = await createUser({
+      auth_id: authId,
+      email,
+      username,
+      password_hash: passwordHash,
+      isGuest: false,
+    })
+
+    // Create mastery and glory
+    await Promise.all([createMastery(newUser.id), createGlory(newUser.id)])
+
+    // Create session
+    await createSession(newUser.id, newUser.email, newUser.username, false)
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+      },
+>>>>>>> c7954cd6063a05854bf6716bc8e43b8cd9bfb257
+    })
+  } catch (error) {
+    console.error("[v0] Register error:", error)
+    return NextResponse.json({ error: "Registration failed" }, { status: 500 })
+  }
+<<<<<<< HEAD
+}
+=======
+}
+>>>>>>> c7954cd6063a05854bf6716bc8e43b8cd9bfb257
