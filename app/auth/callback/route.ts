@@ -23,12 +23,20 @@ export async function GET(request: Request) {
 
     const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (sessionError) throw sessionError
-    if (!sessionData.session) throw new Error("Session not created")
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      throw sessionError
+    }
+    
+    if (!sessionData.session) {
+      console.error("No session created")
+      throw new Error("Session not created")
+    }
 
     const authUser = sessionData.user
 
-    if (!authUser) {
+    if (!authUser || !authUser.email) {
+      console.error("No user or email in session")
       return NextResponse.redirect(
         new URL(`/auth/error?message=${encodeURIComponent("User session initialization failed")}`, requestUrl.origin),
       )
@@ -36,12 +44,12 @@ export async function GET(request: Request) {
 
     console.log("OAuth callback - auth user:", authUser.id, "email:", authUser.email)
 
-    // Создаем или обновляем профиль пользователя
+    // 1. Получаем или создаем профиль в таблице users
     const username =
       authUser.user_metadata?.full_name ||
       authUser.user_metadata?.name ||
       authUser.user_metadata?.user_name ||
-      authUser.email?.split("@")[0] ||
+      authUser.email.split("@")[0] ||
       `User_${Math.random().toString(36).substr(2, 8)}`
 
     const avatarUrl =
@@ -49,20 +57,28 @@ export async function GET(request: Request) {
       authUser.user_metadata?.picture ||
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 
-    const { data: existingUser } = await supabase
+    console.log("Looking for existing user with auth_id:", authUser.id)
+    
+    // Проверяем существование пользователя
+    const { data: existingUser, error: userError } = await supabase
       .from("users")
       .select("id, auth_id, isGuest")
       .eq("auth_id", authUser.id)
       .maybeSingle()
 
+    if (userError) {
+      console.error("Error checking user:", userError)
+    }
+
     let userId: string | undefined
 
     if (!existingUser) {
       console.log("Creating new user profile for:", authUser.id)
-
+      
+      // Создаем нового пользователя
       const { data: newUser, error: insertError } = await supabase
         .from("users")
-        .upsert({
+        .insert({
           auth_id: authUser.id,
           email: authUser.email,
           username: username.substring(0, 20),
@@ -73,18 +89,39 @@ export async function GET(request: Request) {
           sound_enabled: true,
           music_enabled: true,
           isGuest: false,
-          is_verified: true, // Google уже подтвердил email
+          is_verified: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'auth_id'
         })
         .select("id")
         .single()
 
       if (insertError) {
         console.error("Profile creation error during OAuth:", insertError)
-        // Не прерываем процесс, продолжаем без профиля
+        
+        // Пробуем upsert на случай если пользователь уже есть
+        const { data: upsertUser, error: upsertError } = await supabase
+          .from("users")
+          .upsert({
+            auth_id: authUser.id,
+            email: authUser.email,
+            username: username.substring(0, 20),
+            avatar_url: avatarUrl,
+            isGuest: false,
+            is_verified: true,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'auth_id'
+          })
+          .select("id")
+          .single()
+
+        if (upsertError) {
+          console.error("Upsert also failed:", upsertError)
+        } else {
+          userId = upsertUser?.id
+          console.log("User created via upsert with id:", userId)
+        }
       } else {
         userId = newUser?.id
         console.log("New user created with id:", userId)
@@ -93,14 +130,14 @@ export async function GET(request: Request) {
       console.log("User exists, updating profile:", existingUser.id)
       userId = existingUser.id
 
-      // Обновляем профиль, особенно если это был гость
+      // Обновляем профиль
       const { error: updateError } = await supabase
         .from("users")
         .update({
           email: authUser.email,
           username: username.substring(0, 20),
           avatar_url: avatarUrl,
-          isGuest: false, // Превращаем гостя в полноценного пользователя
+          isGuest: false,
           is_verified: true,
           updated_at: new Date().toISOString(),
         })
@@ -111,61 +148,94 @@ export async function GET(request: Request) {
       }
     }
 
-    // ВАЖНО: Обязательно создаем игровой аккаунт (мастерство и славу)
+    // 2. Создаем игровой аккаунт если пользователь создан
     if (userId) {
       console.log("Creating game account for user:", userId)
       
       try {
-        // Проверяем, есть ли уже мастерство
-        const { data: existingMastery } = await supabase
+        // Проверяем и создаем mastery
+        const { data: existingMastery, error: masteryCheckError } = await supabase
           .from("mastery")
           .select("user_id")
           .eq("user_id", userId)
           .maybeSingle()
 
+        if (masteryCheckError) {
+          console.error("Error checking mastery:", masteryCheckError)
+        }
+
         if (!existingMastery) {
           console.log("Creating mastery for user:", userId)
-          const { error: masteryError } = await supabase.from("mastery").upsert({
-            user_id: userId,
-            level: 1,
-            mini_level: 0,
-            fragments: 0,
-            total_wins: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'user_id'
-          })
+          const { error: masteryError } = await supabase
+            .from("mastery")
+            .insert({
+              user_id: userId,
+              level: 1,
+              mini_level: 0,
+              fragments: 0,
+              total_wins: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
 
           if (masteryError) {
             console.error("Mastery creation error:", masteryError)
+            // Пробуем upsert
+            await supabase
+              .from("mastery")
+              .upsert({
+                user_id: userId,
+                level: 1,
+                mini_level: 0,
+                fragments: 0,
+                total_wins: 0,
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'user_id'
+              })
           } else {
             console.log("Mastery created successfully")
           }
         }
 
-        // Проверяем, есть ли уже слава
-        const { data: existingGlory } = await supabase
+        // Проверяем и создаем glory
+        const { data: existingGlory, error: gloryCheckError } = await supabase
           .from("glory")
           .select("user_id")
           .eq("user_id", userId)
           .maybeSingle()
 
+        if (gloryCheckError) {
+          console.error("Error checking glory:", gloryCheckError)
+        }
+
         if (!existingGlory) {
           console.log("Creating glory for user:", userId)
-          const { error: gloryError } = await supabase.from("glory").upsert({
-            user_id: userId,
-            level: 1,
-            wins: 0,
-            total_glory_wins: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'user_id'
-          })
+          const { error: gloryError } = await supabase
+            .from("glory")
+            .insert({
+              user_id: userId,
+              level: 1,
+              wins: 0,
+              total_glory_wins: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
 
           if (gloryError) {
             console.error("Glory creation error:", gloryError)
+            // Пробуем upsert
+            await supabase
+              .from("glory")
+              .upsert({
+                user_id: userId,
+                level: 1,
+                wins: 0,
+                total_glory_wins: 0,
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'user_id'
+              })
           } else {
             console.log("Glory created successfully")
           }
@@ -174,13 +244,12 @@ export async function GET(request: Request) {
         console.log("Game account creation completed for user:", userId)
       } catch (innerError) {
         console.error("Error creating mastery/glory during OAuth:", innerError)
-        // Не прерываем процесс - пользователь может создать их позже
       }
     } else {
-      console.warn("No userId available to create game account")
+      console.error("FAILED: No userId available to create game account")
     }
 
-    // Создаем ответ с куками
+    // 3. Создаем ответ с куками
     const response = NextResponse.redirect(new URL("/", requestUrl.origin))
 
     // Устанавливаем куки для сессии
@@ -206,7 +275,7 @@ export async function GET(request: Request) {
       path: "/",
     })
 
-    // Устанавливаем флаг для клиента, что нужно обновить сессию
+    // Устанавливаем флаг для клиента
     response.cookies.set({
       name: "auth_refresh",
       value: "1",
@@ -217,26 +286,15 @@ export async function GET(request: Request) {
       path: "/",
     })
 
-    // Дополнительный куки для идентификации OAuth пользователя
-    response.cookies.set({
-      name: "oauth_completed",
-      value: "1",
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 300, // 5 минут
-      path: "/",
-    })
-
-    console.log("OAuth callback successful, redirecting to home")
-    console.log("User ID for game account:", userId)
+    console.log("OAuth callback successful, redirecting to home. User ID:", userId)
     return response
 
   } catch (error: any) {
     console.error("Auth callback error:", error)
     
-    // Более информативное сообщение об ошибке
     const errorMessage = error?.message || "Unexpected authentication error"
+    console.error("Detailed error:", error)
+    
     const safeErrorMessage = encodeURIComponent(
       errorMessage.length > 100 ? errorMessage.substring(0, 100) + "..." : errorMessage
     )
