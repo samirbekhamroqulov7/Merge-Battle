@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Mail, Lock, Loader2, User, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const { t } = useI18n()
@@ -55,11 +56,28 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      await window.location.assign(
-        "https://accounts.google.com/o/oauth2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code&scope=openid%20email%20profile",
-      )
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Failed to sign in with Google")
+      const supabase = createClient()
+      
+      // Используем Supabase OAuth для Google
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      })
+      
+      if (error) {
+        console.error('Google OAuth error:', error)
+        setError(`Google login failed: ${error.message}`)
+      }
+      // Если успешно, Supabase сам перенаправит пользователя
+    } catch (error: any) {
+      console.error('Google login error:', error)
+      setError(error.message || 'Failed to sign in with Google')
       setIsGoogleLoading(false)
     }
   }
@@ -69,17 +87,22 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { error } = await fetch("/api/auth/guest", {
+      const response = await fetch("/api/auth/guest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
 
-      if (error) throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create guest account")
+      }
 
       localStorage.setItem("brain_battle_guest_mode", "true")
       localStorage.setItem("brain_battle_auto_login", "true")
 
       router.push("/")
+      router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
       setIsGuestLoading(false)
