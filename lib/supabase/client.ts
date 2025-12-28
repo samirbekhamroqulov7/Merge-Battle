@@ -98,7 +98,7 @@ export const signOut = async () => {
   return await response.json()
 }
 
-// Google OAuth function (ИСПРАВЛЕННАЯ версия)
+// Google OAuth function (ОБНОВЛЕННАЯ версия)
 export const signInWithGoogle = async () => {
   const supabase = createClient()
   

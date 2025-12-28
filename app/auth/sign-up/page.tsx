@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -10,7 +9,7 @@ import { GameCard } from "@/components/ui/game-card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useI18n } from "@/lib/i18n/context"
-import { Loader2, Mail, Lock, User, ArrowLeft, AlertCircle } from "lucide-react"
+import { Loader2, Mail, Lock, User, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react"
 
 export default function SignUpPage() {
   const { t } = useI18n()
@@ -21,51 +20,69 @@ export default function SignUpPage() {
     email: "",
     password: "",
     username: "",
+    confirmPassword: "",
   })
 
-  // Измените функцию handleSubmit в app/auth/sign-up/page.tsx:
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
-  setError(null)
-
-  try {
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: formData.email,
-        password: formData.password,
-        username: formData.username,
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || "Registration failed")
-    }
-
-    // Если требуется верификация
-    if (data.requiresVerification) {
-      // Перенаправляем на страницу верификации
-      router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`)
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError("Пароли не совпадают")
+      setLoading(false)
       return
     }
 
-    // Если регистрация прошла сразу (старый код)
-    router.push("/")
-    router.refresh()
-  } catch (error: unknown) {
-    console.error("[v0] Registration error:", error)
-    setError(error instanceof Error ? error.message : "Registration failed")
-  } finally {
-    setLoading(false)
+    if (formData.username.length < 3) {
+      setError("Никнейм должен быть минимум 3 символа")
+      setLoading(false)
+      return
+    }
+
+    if (formData.username.length > 20) {
+      setError("Никнейм должен быть не более 20 символов")
+      setLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          username: formData.username,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed")
+      }
+
+      // Если требуется верификация
+      if (data.requiresVerification) {
+        // Перенаправляем на страницу верификации
+        router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`)
+        return
+      }
+
+      // Если регистрация прошла сразу (старый код)
+      router.push("/")
+      router.refresh()
+    } catch (error: unknown) {
+      console.error("[v0] Registration error:", error)
+      setError(error instanceof Error ? error.message : "Registration failed")
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   return (
     <div className="min-h-screen flex flex-col bg-background safe-area-top safe-area-bottom">
@@ -83,7 +100,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-foreground">
-                  {t("auth.username")}
+                  Никнейм*
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -92,18 +109,21 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="text"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    placeholder={t("auth.username_placeholder")}
+                    placeholder="Ваш игровой никнейм"
                     className="pl-10 bg-secondary border-border"
                     required
                     minLength={3}
                     maxLength={20}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  От 3 до 20 символов. Будет виден другим игрокам.
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
-                  {t("auth.email")}
+                  Email*
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -117,11 +137,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                     required
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  На этот email придет код подтверждения
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-foreground">
-                  {t("auth.password")}
+                  Пароль*
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -130,7 +153,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder={t("auth.password_placeholder")}
+                    placeholder="Минимум 6 символов"
+                    className="pl-10 bg-secondary border-border"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-foreground">
+                  Подтвердите пароль*
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="Повторите пароль"
                     className="pl-10 bg-secondary border-border"
                     required
                     minLength={6}
@@ -145,22 +187,37 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               )}
 
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-600">Процесс регистрации:</p>
+                    <ul className="list-disc list-inside text-blue-500/80 mt-1 space-y-1">
+                      <li>Введите никнейм, email и пароль</li>
+                      <li>На email придет 6-значный код</li>
+                      <li>Введите код для подтверждения</li>
+                      <li>Игровой аккаунт создастся автоматически</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               <GameButton type="submit" variant="primary" size="md" className="w-full mt-2" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {t("auth.creating_account")}
+                    Регистрация...
                   </>
                 ) : (
-                  t("auth.create_account")
+                  "Зарегистрироваться"
                 )}
               </GameButton>
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
-              {t("auth.already_have_account")}{" "}
+              Уже есть аккаунт?{" "}
               <Link href="/auth/login" className="text-primary hover:underline font-medium">
-                {t("auth.login_here")}
+                Войти
               </Link>
             </p>
           </GameCard>

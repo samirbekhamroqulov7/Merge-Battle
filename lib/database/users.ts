@@ -13,6 +13,7 @@ export interface User {
   sound_enabled?: boolean
   music_enabled?: boolean
   isGuest?: boolean
+  is_verified?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -30,7 +31,8 @@ export async function createUser(user: {
     INSERT INTO users (
       auth_id, email, username, password_hash, 
       avatar_url, avatar_frame, nickname_style,
-      language, sound_enabled, music_enabled, isGuest
+      language, sound_enabled, music_enabled, isGuest,
+      is_verified
     )
     VALUES (
       ${user.auth_id}, 
@@ -43,7 +45,8 @@ export async function createUser(user: {
       'ru',
       true,
       true,
-      ${user.isGuest || false}
+      ${user.isGuest || false},
+      ${user.isGuest ? false : true}
     )
     RETURNING *
   `
@@ -56,6 +59,17 @@ export async function getUserByEmail(email: string) {
 
   const [user] = await sql`
     SELECT * FROM users WHERE email = ${email} LIMIT 1
+  `
+
+  return user as User | undefined
+}
+
+// ДОБАВЬТЕ ЭТУ ФУНКЦИЮ ДЛЯ ПРОВЕРКИ НИКНЕЙМА
+export async function getUserByUsername(username: string) {
+  const sql = getDatabase()
+
+  const [user] = await sql`
+    SELECT * FROM users WHERE username = ${username} LIMIT 1
   `
 
   return user as User | undefined
@@ -92,6 +106,7 @@ export async function updateUser(id: string, updates: Partial<User>) {
     "language",
     "sound_enabled",
     "music_enabled",
+    "is_verified",
   ]
 
   const updateFields: Record<string, unknown> = {}

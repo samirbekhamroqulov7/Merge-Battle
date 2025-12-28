@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     // Проверяем существование пользователя
     const { data: existingUser, error: userError } = await supabase
       .from("users")
-      .select("id, auth_id, isGuest")
+      .select("id, auth_id, isGuest, username, email")
       .eq("auth_id", authUser.id)
       .maybeSingle()
 
@@ -71,6 +71,8 @@ export async function GET(request: Request) {
     }
 
     let userId: string | undefined
+    let userEmail = authUser.email!
+    let userUsername = username.substring(0, 20)
 
     if (!existingUser) {
       console.log("Creating new user profile for:", authUser.id)
@@ -80,8 +82,8 @@ export async function GET(request: Request) {
         .from("users")
         .insert({
           auth_id: authUser.id,
-          email: authUser.email,
-          username: username.substring(0, 20),
+          email: userEmail,
+          username: userUsername,
           avatar_url: avatarUrl,
           avatar_frame: "none",
           nickname_style: "normal",
@@ -89,23 +91,23 @@ export async function GET(request: Request) {
           sound_enabled: true,
           music_enabled: true,
           isGuest: false,
-          is_verified: true,
+          is_verified: true, // Google аккаунт автоматически подтвержден
+          password_hash: null, // OAuth users don't have password
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .select("id")
+        .select("id, email, username, isGuest")
         .single()
 
       if (insertError) {
         console.error("Profile creation error during OAuth:", insertError)
-        
         // Пробуем upsert на случай если пользователь уже есть
         const { data: upsertUser, error: upsertError } = await supabase
           .from("users")
           .upsert({
             auth_id: authUser.id,
-            email: authUser.email,
-            username: username.substring(0, 20),
+            email: userEmail,
+            username: userUsername,
             avatar_url: avatarUrl,
             isGuest: false,
             is_verified: true,
@@ -113,29 +115,35 @@ export async function GET(request: Request) {
           }, {
             onConflict: 'auth_id'
           })
-          .select("id")
+          .select("id, email, username, isGuest")
           .single()
 
         if (upsertError) {
           console.error("Upsert also failed:", upsertError)
         } else {
           userId = upsertUser?.id
+          userEmail = upsertUser?.email || userEmail
+          userUsername = upsertUser?.username || userUsername
           console.log("User created via upsert with id:", userId)
         }
       } else {
         userId = newUser?.id
+        userEmail = newUser?.email || userEmail
+        userUsername = newUser?.username || userUsername
         console.log("New user created with id:", userId)
       }
     } else {
       console.log("User exists, updating profile:", existingUser.id)
       userId = existingUser.id
+      userEmail = existingUser.email || userEmail
+      userUsername = existingUser.username || userUsername
 
       // Обновляем профиль
       const { error: updateError } = await supabase
         .from("users")
         .update({
-          email: authUser.email,
-          username: username.substring(0, 20),
+          email: userEmail,
+          username: userUsername,
           avatar_url: avatarUrl,
           isGuest: false,
           is_verified: true,
