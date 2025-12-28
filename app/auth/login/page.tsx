@@ -10,7 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Mail, Lock, Loader2, User, AlertCircle } from "lucide-react"
 import Link from "next/link"
+<<<<<<< HEAD
 import { createClient } from "@/lib/supabase/client" // ИМПОРТИРУЙТЕ createClient
+=======
+import { createClient } from "@/lib/supabase/client"
+>>>>>>> a3cbf969e85eb81ca7fd5b281045a9ff6b58e82c
 
 export default function LoginPage() {
   const { t } = useI18n()
@@ -55,8 +59,14 @@ export default function LoginPage() {
     setError(null)
 
     try {
+<<<<<<< HEAD
       const supabase = createClient() // ИСПОЛЬЗУЙТЕ createClient
       
+=======
+      const supabase = createClient()
+      
+      // Используем Supabase OAuth для Google
+>>>>>>> a3cbf969e85eb81ca7fd5b281045a9ff6b58e82c
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -71,7 +81,10 @@ export default function LoginPage() {
       if (error) {
         console.error('Google OAuth error:', error)
         setError(`Google login failed: ${error.message}`)
+<<<<<<< HEAD
         setIsGoogleLoading(false)
+=======
+>>>>>>> a3cbf969e85eb81ca7fd5b281045a9ff6b58e82c
       }
       // Если успешно, Supabase сам перенаправит пользователя
     } catch (error: any) {
